@@ -1,0 +1,254 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+//
+// Migration note: 20260408120000 adds optional "Brand" / "LocationBrand" tables; 20260408130000
+// adds optional coordinate-verification columns on "Location". This Prisma schema targets the
+// legacy string columns (brands, customBrands) only. If those migrations ran, extra DB objects may
+// exist and are ignored until normalized storage is restored.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Upload {
+  id                String   @id @default(uuid())
+  filename          String
+  originalFilename  String
+  fileSize          Int
+  uploadedBy        String   @default("admin")
+  uploadedAt        DateTime @default(now())
+  status            String   @default("pending") // pending, validating, valid, invalid, processing, completed, failed
+  validationErrors  String?  // JSON string
+  validationWarnings String? // JSON string
+  rowsTotal         Int      @default(0)
+  rowsProcessed     Int      @default(0)
+  rowsFailed        Int      @default(0)
+  brandConfig       String?
+  scraperType       String?  // json, html, manual_upload
+
+  validationLogs    ValidationLog[]
+  locations         Location[]
+  scraperJobs       ScraperJob[]
+
+  @@index([status])
+  @@index([uploadedAt])
+}
+
+model ValidationLog {
+  id          String   @id @default(uuid())
+  uploadId    String
+  rowNumber   Int?
+  logType     String   // error, warning, info
+  fieldName   String?
+  issueType   String
+  message     String
+  value       String?
+  createdAt   DateTime @default(now())
+
+  upload      Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@index([uploadId])
+  @@index([logType])
+}
+
+model Location {
+  id                      String   @id @default(uuid())
+  uploadId                String?
+  handle                  String   @unique
+  name                    String
+  status                  Boolean  @default(true)
+  addressLine1            String
+  addressLine2            String?
+  postalCode              String?
+  city                    String
+  stateProvinceRegion     String?
+  country                 String
+  phone                   String?
+  email                   String?
+  website                 String?
+  imageUrl                String?
+  /// Shopify Content → Files GID (e.g. gid://shopify/MediaImage/…) for the current imageUrl. Used for cleanup on replace/remove.
+  shopifyFileGid          String?
+  /// When true, the file was created via POST /premium-stores/stores/:handle/image (Shopify upload). Safe to fileDelete on replace/remove. When false/null, the asset may be shared (theme, other pages) — never delete from Shopify.
+  shopifyStoreImageExclusiveUpload Boolean?
+
+  // Hours
+  monday                  String?
+  tuesday                 String?
+  wednesday               String?
+  thursday                String?
+  friday                  String?
+  saturday                String?
+  sunday                  String?
+
+  // Coordinates (required)
+  latitude                Float
+  longitude               Float
+
+  // SEO
+  pageTitle               String?
+  pageDescription         String?
+  metaTitle               String?
+  metaDescription         String?
+
+  // Other
+  priority                Int?
+  tags                    String?
+  brands                  String?
+  customBrands            String?
+  isPremium               Boolean  @default(false)
+  /// Synced from PremiumStore for public map filters (OR with isBoutique / isServiceCenter for isPremium).
+  isVerifiedDealer      Boolean  @default(false)
+  isBoutique              Boolean  @default(false)
+  isServiceCenter         Boolean  @default(false)
+  /// Map brand filter: null = match full brands/customBrands; "verified_brand" = match visible (approved) brands only.
+  brandFilterMode         String?
+
+  // English translations (for stores with non-Latin names/addresses)
+  nameEn                  String?
+  addressLine1En          String?
+  cityEn                  String?
+
+  // Localization (French)
+  nameFr                  String?
+  pageTitleFr             String?
+  pageDescriptionFr       String?
+  customBrandsFr          String?
+
+  // Localization (Chinese)
+  nameZhCn                String?
+  pageTitleZhCn           String?
+  pageDescriptionZhCn     String?
+  customBrandsZhCn        String?
+
+  // Localization (Spanish)
+  nameEs                  String?
+  pageTitleEs             String?
+  pageDescriptionEs       String?
+  customBrandsEs          String?
+
+  // Custom Buttons
+  customButton1Title      String?
+  customButton1Url        String?
+  customButton2Title      String?
+  customButton2Url        String?
+
+  // Custom Buttons - Localized
+  customButton1TitleFr    String?
+  customButton1UrlFr      String?
+  customButton1TitleZhCn  String?
+  customButton1UrlZhCn    String?
+  customButton1TitleEs    String?
+  customButton1UrlEs      String?
+
+  customButton2TitleFr    String?
+  customButton2UrlFr      String?
+  customButton2TitleZhCn  String?
+  customButton2UrlZhCn    String?
+  customButton2TitleEs    String?
+  customButton2UrlEs      String?
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  upload                  Upload?  @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  premiumFilterBrands     StorePremiumBrand[]
+
+  @@index([uploadId])
+  @@index([city])
+  @@index([country])
+  @@index([isPremium])
+  @@index([latitude, longitude])
+  @@index([brands])
+}
+
+model ScraperJob {
+  id              String   @id @default(uuid())
+  brandName       String
+  config          String   // JSON string
+  status          String   @default("queued") // queued, running, completed, failed
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  uploadId        String?
+  errorMessage    String?
+  recordsScraped  Int      @default(0)
+  logs            String?  // Full scraper output logs
+
+  upload          Upload?  @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([brandName])
+}
+
+model User {
+  id          String   @id @default(uuid())
+  username    String   @unique
+  email       String   @unique
+  passwordHash String
+  role        String   @default("admin") // admin, viewer
+  createdAt   DateTime @default(now())
+  lastLogin   DateTime?
+
+  @@index([username])
+  @@index([email])
+}
+
+model PremiumStore {
+  handle              String   @id
+  addedAt             DateTime @default(now())
+  notes               String?
+  storeType           String? // legacy; use isVerifiedDealer / isBoutique
+  isVerifiedDealer    Boolean  @default(false)
+  isBoutique          Boolean  @default(false)
+  isServiceCenter     Boolean  @default(false)
+}
+
+model StorePremiumBrand {
+  id         String   @id @default(uuid())
+  handle     String
+  brandToken String
+  brandName  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  location   Location @relation(fields: [handle], references: [handle], onDelete: Cascade)
+
+  @@unique([handle, brandToken])
+  @@index([handle])
+  @@index([brandToken])
+  @@index([brandName])
+}
+
+/// Per-brand scraper config; merged over backend/brand_configs.json for persistence on Railway.
+model BrandConfig {
+  brandId   String   @id
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Baseline keys from brand_configs.json to omit after rename/delete (file cannot be patched in prod).
+model BrandConfigBaselineExclude {
+  brandId   String   @id
+  createdAt DateTime @default(now())
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  event      String   // e.g. "store_tapped", "brand_searched", "store_phone_tapped"
+  properties String?  // JSON: { storeId, storeName, brand, source, ... }
+  sessionId  String?  // anonymous session grouping (no PII)
+  deviceType String?  // "ios" | "android"
+  createdAt  DateTime @default(now())
+
+  @@index([event])
+  @@index([createdAt])
+  @@index([event, createdAt])
+  @@index([sessionId])
+}

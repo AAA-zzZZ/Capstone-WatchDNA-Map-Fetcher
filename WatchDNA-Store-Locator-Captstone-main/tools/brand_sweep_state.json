@@ -1,0 +1,169 @@
+{
+  "_README": "Tracking state for the brand sweep on the brand-discovery branch. Updated as each brand is processed.",
+  "branch": "brand-discovery",
+  "source": "https://watchdna.com/tools/storelocator (Thomas's filter list)",
+  "order": "bottom-up",
+  "completed": [
+    {
+      "brand": "ZENITH",
+      "config_key": "zenith_stores",
+      "commit": "02ea134",
+      "rows": 450,
+      "notes": "POST per country. Required new post_per_country engine strategy."
+    },
+    {
+      "brand": "U-BOAT",
+      "config_key": "uboat_stores",
+      "commit": "9f692e3",
+      "rows": 483,
+      "notes": "wpgmza REST markers. Borderline: 701 raw → 483 normalized; city 0%, country 54%, phone 0%. Upstream data is mashed."
+    },
+    {
+      "brand": "TUDOR",
+      "config_key": "tudor_retailers",
+      "rows": 789,
+      "notes": "Same backend as Rolex (retailers.tudorwatch.com). Cloned rolex_retailers with brand=TDR. Required type:viewport to enable expansion."
+    },
+    {
+      "brand": "TISSOT",
+      "config_key": "tissot_stores",
+      "rows": 10618,
+      "notes": "SFCC backend. country_filter via worldwide_country_pagination. data_path: stores.stores. Likely template for other Swatch Group brands."
+    },
+    {
+      "brand": "TAG HEUER",
+      "config_key": "tagheuer_stores",
+      "rows": 2001,
+      "notes": "Algolia stores index. Reused post_per_country with {country} templated inside the params filter string. Search-only API key is public."
+    },
+    {
+      "brand": "SEIKO",
+      "config_key": "seiko_stores",
+      "rows": 10463,
+      "notes": "Custom country UUIDs (mapped via country_id_map). Required new inject_country_field engine option. unit=99999 returns all stores per country in one call."
+    },
+    {
+      "brand": "SWATCH",
+      "config_key": "swatch_stores",
+      "rows": 1510,
+      "notes": "SFCC. First attempt timed out on every country — Akamai requires a full browser User-Agent. Fixed by adding custom_headers."
+    },
+    {
+      "brand": "RAYMOND WEIL",
+      "config_key": "raymond_weil_stores",
+      "rows": 1358,
+      "notes": "Stockist.co SaaS. Uses radius_search expansion. Stockist is multi-tenant — expect to clone this for several smaller brands by swapping the map_<tenant> ID."
+    },
+    {
+      "brand": "PANERAI",
+      "config_key": "panerai_stores",
+      "rows": 591,
+      "notes": "Richemont brand. Static JSON at /network/boutiques...json. No auth needed."
+    },
+    {
+      "brand": "AEROWATCH",
+      "config_key": "aerowatch_stores",
+      "rows": 282,
+      "notes": "Custom AJAX endpoint /en/stockists/ajax/stores. Single GET."
+    }
+  ],
+  "blocked": [
+    {
+      "brand": "ORIS",
+      "reason": "Nuxt SPA with GraphQL behind query-specific hash (__gqlh). Can't discover the query name + hash without browser. Store data not embedded in SSR HTML.",
+      "endpoint_seen": "https://www.oris.ch/api/nuxt/graphql/query/<unknown>",
+      "fix_estimate": "Would need browser automation or the exact query name + hash from DevTools."
+    },
+    {
+      "brand": "GRAND SEIKO",
+      "reason": "Shares the same Seiko API (same key, same country IDs, same 2507 stores). Grand Seiko dealers are already covered by the seiko_stores config. Would need the Grand Seiko collection_id to filter — low priority since the physical stores overlap completely.",
+      "endpoint_seen": "Same as Seiko",
+      "fix_estimate": "n/a — already covered by seiko_stores"
+    },
+    {
+      "brand": "CHOPARD",
+      "reason": "404 on Panerai-style JSON path. Different Richemont backend.",
+      "endpoint_seen": "https://www.chopard.com/us/en/network/boutiques...json → 404",
+      "fix_estimate": "Needs DevTools to find actual endpoint."
+    },
+    {
+      "brand": "HUBLOT",
+      "reason": "403/404 on direct probe. WAF protected.",
+      "endpoint_seen": null,
+      "fix_estimate": "Needs DevTools."
+    },
+    {
+      "brand": "IWC",
+      "reason": "404 on Panerai-style JSON path. Different Richemont backend.",
+      "endpoint_seen": "https://www.iwc.com/.../boutiques...json → 404",
+      "fix_estimate": "Needs DevTools."
+    },
+    {
+      "brand": "MOVADO",
+      "reason": "POST-only radius API at /api/commerce/SearchStores. 5894 total stores but capped at 200 per call. Offset/pagination params are ignored. Would need POST support in scrape_radius_expansion (currently GET only).",
+      "endpoint_seen": "https://www.movado.com/api/commerce/SearchStores (POST, body: {latitude, longitude, radius})",
+      "fix_estimate": "30-60 min to add POST support to scrape_radius_expansion."
+    },
+    {
+      "brand": "HAMILTON",
+      "reason": "Swatch Group but NOT on Tissot SFCC pattern. /en-us/stores?countryCode=US returns 404.",
+      "endpoint_seen": null,
+      "fix_estimate": "Needs DevTools."
+    },
+    {
+      "brand": "MIDO",
+      "reason": "Swatch Group but NOT on Tissot SFCC pattern. /en-us/stores?countryCode=US returns 404.",
+      "endpoint_seen": null,
+      "fix_estimate": "Needs DevTools."
+    },
+    {
+      "brand": "VERSACE",
+      "reason": "ASP.NET WebForms postback. Store data is rendered into HTML by Storelocator.aspx after __doPostBack on country/city dropdowns. No JSON XHR feed (the GetViewportInfo XHRs are Google Maps tile metadata, not store data). Would require __VIEWSTATE/__EVENTVALIDATION management + per-country + per-city HTML parsing.",
+      "endpoint_seen": "https://www.versace.com/.../Storelocator.aspx?Country=USA&City=NEW+YORK",
+      "fix_estimate": "half-day of engine work; defer until 2+ similar brands surface"
+    },
+    {
+      "brand": "ROGER DUBUIS",
+      "reason": "Laravel/Phoenix backend with X-CSRF-TOKEN required on every request. Routes /api/search/stores and /api/search/store/locator return HTTP 500 without session cookies + CSRF token from /api/xhr/ping. Markers on the boutiques page are loaded via XHR but obscured by analytics noise; the route is gated on session state.",
+      "endpoint_seen": "https://www.rogerdubuis.com/api/search/stores (also /api/search/store/locator)",
+      "fix_estimate": "30-60 min for a session-aware engine helper. Worth building if 2+ Richemont brands (IWC, Panerai) use the same pattern."
+    },
+    {
+      "brand": "STIL TIMEPIECES",
+      "reason": "Brand has no store locator at all (direct-to-consumer / no retail partners). Nothing to scrape.",
+      "endpoint_seen": null,
+      "fix_estimate": "n/a"
+    },
+    {
+      "brand": "LONGINES",
+      "reason": "Magento 2 GraphQL backend proxied through a frontend mesh (Platform.sh). The /graphql endpoint returns 404 when called from outside — only reachable through the app's server-side proxy with session context. Internal endpoint: magento.longines.com.c.od5p7chjmqn7q.ent.platform.sh/graphql (SSL cert mismatch when called directly).",
+      "endpoint_seen": "https://www.longines.com/graphql (POST, Magento GraphQL with store: en_us header)",
+      "fix_estimate": "Would need browser automation or a way to proxy through the frontend session."
+    },
+    {
+      "brand": "RADO",
+      "reason": "Proprietary LPE (Luxury Product Experience) Nuxt SPA on store.rado.com. Algolia only indexes 'subdivisions' (geographic autocomplete), not stores. All curl probes return the same HTML shell. No SSR state (__NUXT__ empty), no data-lat attributes, no discoverable API endpoint. Store data loads dynamically via internal JS mechanisms after user interaction.",
+      "endpoint_seen": "https://store.rado.com (Nuxt SPA), Algolia app 0knemtbxx3 index=subdivisions only",
+      "fix_estimate": "Would need browser automation (Playwright/Puppeteer) to intercept the runtime fetch, or reverse-engineer the LPE platform API from minified JS bundles."
+    },
+    {
+      "brand": "SWAROVSKI",
+      "reason": "HTML response with .swa-store-view__store divs (data-latitude/data-longitude attrs). Radius-capped at ~150 miles (huge radius returns 0). 12 stores per call. Would need country iteration + multi-point radius grid + HTML parser. ~1-2h engine work, marginal ROI: Swarovski is mostly fashion, watches are a side product.",
+      "endpoint_seen": "https://www.swarovski.com/en-US/store-finder/stores/?countryIso=US&allBaseStores=true&radius=150.0&geoPoint.latitude=...",
+      "fix_estimate": "1-2h; revisit if 2+ similar HTML+radius brands surface"
+    }
+  ],
+  "queue_remaining_excludes": ["SWAROVSKI"], "queue_remaining": [ "SWAROVSKI",
+    "RADO",
+    "PILO & CO", "PANERAI", "ORIS", "OCEANUS", "NORQAIN", "MOVADO",
+    "MONTBLANC", "MONDAINE", "MIDO", "MICROMILSPEC", "MARATHON", "LUMINOX",
+    "LONGINES", "LACOSTE", "JACOB & CO", "IWC", "HUBLOT", "HAMILTON",
+    "GUESS", "GUCCI", "GRAND SEIKO", "GLASHÜTTE ORIGINAL", "GIRARD PERREGAUX",
+    "G-SHOCK", "FREDERIQUE CONSTANT", "FORTIS", "ELKA", "EDOX", "DIESEL",
+    "COACH", "CITIZEN", "CHOPARD", "BOSS", "BACKES & STRAUSS", "AEROWATCH"
+  ],
+  "skipped_already_configured": [
+    "ROLEX", "OMEGA", "BAUME & MERCIER", "BELL & ROSS", "BREITLING",
+    "BULOVA", "CALVIN KLEIN", "CASIO", "ACCUTRON", "BALL"
+  ]
+}

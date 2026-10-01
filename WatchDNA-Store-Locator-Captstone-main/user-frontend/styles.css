@@ -1,0 +1,1119 @@
+:root {
+  --card: #fff9e8;
+  --card2: #ffffff;
+  --border: #c8bfb2;
+  --accent: #6e4b3a;
+  --hover-bg: #f9f5e9;
+  --hover-bg2: #bea24d;
+  --text: #2e2b28;
+  --link: #3a4a5e;
+}
+
+html {
+  overflow: hidden;
+  height: 100%;
+}
+
+header,
+#footer,
+.banner {
+  color: black;
+}
+
+/* #footer a {
+      color: black;
+    } */
+
+body {
+  font-family: "Cormorant", serif;
+  color: var(--text);
+  margin: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+
+/* Layout: left vertical control bar + map content to the right.
+body {
+  display: flex;
+} */
+
+header {
+  box-sizing: border-box;
+  background: var(--card);
+  /* width: clamp(240px, 28vw, 400px);
+  min-width: 240px;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0; 
+  bottom: 0;*/
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  z-index: 1002;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+header::-webkit-scrollbar {
+  width: 8px;
+}
+
+header::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+#brandFilter {
+  padding: 8px;
+  min-width: 160px;
+  width: 100%;
+}
+
+.type-divider {
+  text-align: center;
+  color: #aaa;
+  font-size: 0.85em;
+  margin: 6px 0;
+  user-select: none;
+}
+
+#map {
+  /* margin-left: clamp(240px, 28vw, 400px); */
+  /* width: calc(100% - clamp(240px, 28vw, 400px)); */
+  height: 100vh;
+}
+
+@media (min-width: 769px) {
+  header {
+    position: fixed;
+    width: clamp(240px, 28vw, 400px);
+    min-width: 240px;
+    left: 0;
+    top: 0;
+    bottom: 0;
+  }
+
+  #map {
+    margin-left: clamp(240px, 28vw, 400px);
+    width: calc(100% - clamp(240px, 28vw, 400px));
+  }
+}
+
+.popup {
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+#filtersPanel[hidden] {
+  display: none !important;
+}
+
+#hamburger {
+  font-size: 20px;
+  font-family: "Cormorant", serif;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer
+}
+
+#clearFiltersBtn {
+  font-size: 20px;
+  font-family: "Cormorant", serif;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#filtersPanel {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.filters-panel {
+  /* default: make the controls look like a card inside the left bar */
+  position: relative;
+  left: 0;
+  top: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Inline styling migrated from prototype.html */
+#brandCheckboxes,
+#typeCheckboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+  width: 100%;
+}
+
+/* Make the brand list scrollable while keeping alphabet headers visible */
+#brandCheckboxes {
+  max-height: 300px;
+  /* adjust as needed */
+  overflow-y: auto;
+  padding-right: 6px;
+  border: 1px solid transparent;
+}
+
+.brand-letter {
+  font-weight: 700;
+  padding-right: 6px;
+}
+
+/* Sticky alphabet headers inside the scrollable brand list */
+.brand-group-header {
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 3;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.brand-group {
+  display: block;
+  padding-left: 8px;
+}
+
+/* Watch / Accessory toggle */
+.type-toggle-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  justify-content: flex-start;
+}
+
+.type-cat,
+.type-cat-hint {
+  text-transform: capitalize;
+}
+
+.type-toggle-label {
+  font-size: 0.95rem;
+  user-select: none;
+  transition: opacity 0.2s;
+}
+
+.type-toggle-label.inactive {
+  opacity: 0.4;
+}
+
+.type-toggle {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.25s ease;
+  padding: 0;
+}
+
+.type-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  transition: transform 0.25s ease;
+}
+
+.type-toggle[aria-checked="true"]::after {
+  transform: translateX(20px);
+}
+
+.type-toggle[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.type-toggle[aria-checked="false"] {
+  background: var(--accent);
+}
+
+.type-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.type-checkbox-label input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+#typeCheckboxes label,
+#brandCheckboxes label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
+}
+
+#typeCheckboxes span,
+#brandCheckboxes span {
+  user-select: none;
+}
+
+.filters-panel label,
+.filters-panel>div {
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.filters-panel label[for="storeFilter"],
+.filters-panel>label {
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+
+#typeCheckboxes {
+  gap: 8px;
+}
+
+.type-divider {
+  margin: 10px 0;
+}
+
+.filters-panel {
+  gap: 8px;
+}
+
+/* Add separator lines between filter sections */
+.filters-panel>label[for="brandCheckboxes"],
+#typeCheckboxes {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+#storeFilter {
+  padding: 8px;
+  min-width: 260px;
+  width: 100%;
+  padding-right: 28px;
+  /* moved from inline */
+}
+
+.store-filter-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+#clearSearch {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  opacity: 0.5;
+  display: none;
+  /* initial state moved from inline */
+}
+
+#searchResultCount {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  margin-top: 4px;
+  min-height: 1em;
+}
+
+.filters-actions {
+  margin-top: 5px;
+  display: flex;
+  gap: 12px; /*Changed from 160px*/
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+#storeCheckboxes {
+  display: none;
+  margin-top: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  padding: 8px;
+  border-radius: 6px;
+}
+
+/* On small screens keep the original top-header behavior: make the header a normal top bar
+@media(max-width:899px) {
+  body {
+    display: block;
+  }
+
+  header {
+    position: static;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background: var(--card);
+    color: #fff;
+  }
+
+  #map {
+    margin-left: 0;
+    width: 100%;
+    height: 640px;
+  }
+
+  .filters-panel {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+}
+*/
+.banner {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .06);
+  z-index: 1000;
+}
+
+#top {
+  /* This is for making the border-bottom span the entire width of the sidebar */
+  margin-left: -18px;
+  margin-right: -18px;
+  border-bottom: 1px solid var(--border);
+}
+
+#top #inner {
+  /* This allows the text within the top div to maintain the same padding as the rest of the sidebar */
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+#storeListContainer {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-bottom: 0.5rem;
+}
+
+#viewportCount {
+  font-size: 0.78rem;
+  color: var(--text-muted, #888);
+  padding: 6px 18px 2px;
+  letter-spacing: 0.02em;
+}
+
+.store-original-name {
+  font-size: 0.78rem;
+  color: var(--text-muted, #888);
+  margin-top: 1px;
+  margin-bottom: 2px;
+}
+
+.store {
+  /* Will change colors if necessary */
+  background-color: var(--card2);
+  border: 1px solid var(--border);
+  color: var(--text);
+
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.store:hover {
+  background-color: var(--hover-bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+}
+
+.store.verified {
+  border-left: 3px solid #c8a75d;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Ignore the messy comments. Only commented out, not deleted as the Store Directory page on WatchDNA may be updated or removed. */
+/* Until we know for sure what the plan is, the code will not be deleted. */
+/*#footer {*/
+/* This fixes the footer div to the bottom of the sidebar */
+/* flex: none;
+      margin-top: auto;
+      margin-left: -10px; */
+/* padding: top right bottom left */
+/* padding: 10px 10px 5px 10px;
+      border-top: 1px solid var(--border);
+      box-sizing: border-box;
+      width: calc(100% + 36px);
+      background: var(--card); */
+/*}*/
+
+#storeCheckboxes input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin-right: 6px;
+}
+
+#storeCheckboxes label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px 0;
+}
+
+#storeCheckboxes input[type="checkbox"]:checked+label,
+#storeCheckboxes input[type="checkbox"]:checked {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Store detail panel */
+.store-detail {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+  margin-top: 10px;
+}
+
+.store-detail.hidden {
+  display: none !important;
+}
+
+.store-detail__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.store-detail__title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.store-detail__close {
+  border: 1px solid var(--border);
+  background: var(--card2);
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.store-detail__image {
+  width: 100%;
+  height: 180px;
+  background: #e9e4d6;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.store-detail__imageText {
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+.store-detail__actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.store-detail__btn {
+  flex: 1 1 110px;
+  min-width: 0;
+  text-align: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card2);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.store-detail__btn[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.store-detail__btn:hover {
+  background: var(--hover-bg);
+}
+
+.store-detail__section {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+}
+
+.store-detail__label {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.store-detail__value {
+  font-size: 1rem;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.store-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.store-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.store-card-media {
+  flex: 0 0 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.store-card-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  border: 1px solid var(--border);
+}
+
+.store-card-badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+  color: #8a6a1f;
+  font-weight: 600;
+}
+
+.store-card-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.verified-location-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #c8a75d;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: #8a6a1f;
+  background: #fffaf0;
+  vertical-align: middle;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+.store-distance {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  opacity: 0.75;
+}
+
+/* Makes it so that when viewing a single store, everything else in the sidebar gets hidden */
+#sidebar.store-focused #top,
+#sidebar.store-focused #hamburger,
+#sidebar.store-focused #filtersPanel,
+#sidebar.store-focused #nearMeWithinBtn,
+#sidebar.store-focused #nearMeRadius,
+#sidebar.store-focused #nearMeBtn,
+#sidebar.store-focused #storeListContainer,
+#sidebar.store-focused #footer {
+  display: none;
+}
+
+#sidebar.filters-open #top {
+  /* This is for making the border-bottom span the entire width of the sidebar */
+  width: 110%;
+  border-bottom: 1px solid var(--border);
+}
+
+#sidebar.filters-open #top #inner h2 {
+  /* Deals with the spacing of the new header text */
+  padding-left: 0px;
+}
+
+/* Verfied Brand indicators */
+.brand-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  margin: 2px 6px 2px 0;
+}
+
+.brand-pill--link {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.brand-pill--link:hover {
+  background: var(--hover-bg);
+  text-decoration: underline;
+}
+
+.verified-check {
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Custom cluster color and sizing */
+.custom-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cluster-inner {
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  background-color: rgba(201, 168, 76, 1.0);
+  color: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cluster-outer {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: rgba(201, 168, 76, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaflet-top.leaflet-right {
+  top: 14px;
+  right: 14px;
+}
+
+.leaflet-top.leaflet-right .leaflet-control-zoom {
+  margin-top: 0;
+  margin-right: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.leaflet-top.leaflet-right .leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.leaflet-top.leaflet-right .leaflet-control-zoom a:last-child {
+  border-bottom: 0;
+}
+
+.watchdna-map-controls {
+  position: relative;
+  display: block;
+  width: 214px;
+  height: 94px;
+  margin-top: -98px;
+  margin-right: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+#searchAreaBtn,
+#locateBtn {
+  position: absolute;
+  pointer-events: auto;
+}
+
+#searchAreaBtn {
+  top: -100px;
+  right: 45px;
+}
+
+#locateBtn {
+  top: -5px;
+  right: -8.5px;
+  width: 44px;
+  height: 44px
+}
+
+.map-action-btn {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text);
+  cursor: pointer;
+  font-family: "Cormorant", serif;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.map-action-btn:hover {
+  background: var(--hover-bg);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16);
+}
+
+.map-action-btn--wide {
+  width: 150px;
+  height: 42px;
+  padding: 0 14px;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.map-action-btn--icon {
+  width: 42px;
+  height: 42px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.map-loading-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 180ms ease, visibility 0s linear 180ms;
+  z-index: 1500;
+}
+
+.map-loading-overlay.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 180ms ease, visibility 0s linear 0s;
+}
+
+@media (min-width: 769px) {
+  .map-loading-overlay {
+    left: clamp(240px, 28vw, 400px);
+  }
+}
+
+.map-loading-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px 10px 14px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  font-family: "Cormorant", serif;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.map-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(110, 75, 58, 0.18);
+  border-top-color: var(--accent);
+  animation: map-loading-rotate 0.8s linear infinite;
+}
+
+@keyframes map-loading-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-loading-spinner { animation-duration: 1.8s; }
+  .map-loading-overlay { transition-duration: 0s; }
+}
+
+#nearMeStatus {
+  display: block;
+  width: 100%;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  opacity: 0.8;
+  margin-top: -2px;
+}
+
+.store.premium {
+  position: relative;
+  border-left: 4px solid var(--hover-bg2);
+}
+
+.store.premium::before {
+  content: "Premium";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+#mapToggleBtn {
+  display: none;
+}
+
+@media (max-width: 768px) {
+
+  html,
+  body {
+    overflow: hidden !important;
+    height: 100% !important;
+  }
+
+  body {
+    display: flex;
+  }
+
+  header {
+    position: fixed !important;
+    width: 100% !important;
+    min-width: unset !important;
+    height: 100vh !important;
+    left: 0 !important;
+    top: 0 !important;
+    z-index: 1002 !important;
+    transition: transform 0.3s ease;
+  }
+
+  header.map-visible {
+    transform: translateX(-100%);
+  }
+
+  #map {
+    position: fixed !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    height: 100vh !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 1 !important;
+  }
+
+  #mapToggleBtn {
+    display: block !important;
+    font-family: "Cormorant", serif;
+    font-size: 15px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  #mapToggleBtn.list-mode {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1003;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    white-space: nowrap;
+  }
+
+  #menuToggleBtn {
+    display: flex;
+    font-family: "Cormorant", serif;
+    font-size: 10px;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1003;
+    width: 60px;
+    height: 48px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  }
+
+  .filter-lock-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--hover-bg2);
+    padding: 12px 20px 12px 16px;
+    border-radius: 8px;
+    font-family: "Cormorant", serif;
+    font-size: 0.95rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    max-width: 340px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    z-index: 9999;
+    line-height: 1.5;
+  }
+
+  .filter-lock-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+  }
+
+  .filter-lock-toast strong {
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 3px;
+  }
+}
+
+#mapLoadingScreen {
+  position: fixed;
+  inset: 0;
+  background: rgba(250, 247, 240, 0.85); /* was solid #faf7f0 */
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px); /* Safari */
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.7s ease;
+}
+
+#mapLoadingScreen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#mapLoadingContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+#mapLoadingLogo {
+  width: 160px;
+  height: auto;
+  animation: logoPulse 2s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* Thin animated progress bar below the logo */
+#mapLoadingBar {
+  width: 160px;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#mapLoadingBarFill {
+  height: 100%;
+  width: 40%;
+  background: #333;
+  border-radius: 2px;
+  animation: barSlide 1.4s ease-in-out infinite;
+}
+
+@keyframes barSlide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}

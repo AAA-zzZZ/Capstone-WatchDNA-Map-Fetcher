@@ -1,0 +1,19 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "f6ea0d7cccf4cc1010e03490ffce3455"
+name = "Store-Locator-Admin-Console"
+application_url = "https://example.com"
+embedded = true
+
+[webhooks]
+api_version = "2025-10"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+# write_files: upload store images to Content → Files from the Railway backend (see SHOPIFY_* env vars).
+scopes = "write_files"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ ]

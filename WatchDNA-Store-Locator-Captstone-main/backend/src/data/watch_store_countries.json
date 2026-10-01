@@ -1,0 +1,159 @@
+{
+  "_README": {
+    "description": "Comprehensive list of countries with watch stores for luxury watch brands",
+    "usage": "This file contains country codes and names for all major watch markets worldwide",
+    "regions": {
+      "north_america": "United States, Canada, Mexico",
+      "europe": "All European countries with luxury watch markets",
+      "asia_pacific": "Major Asian markets including Japan, China, Hong Kong, Singapore, etc.",
+      "middle_east": "UAE, Saudi Arabia, Qatar, etc.",
+      "south_america": "Brazil, Argentina, Chile, etc.",
+      "africa": "South Africa, Egypt, etc."
+    }
+  },
+
+  "countries": {
+    "US": "United States",
+    "CA": "Canada",
+    "MX": "Mexico",
+    
+    "GB": "United Kingdom",
+    "FR": "France",
+    "DE": "Germany",
+    "IT": "Italy",
+    "ES": "Spain",
+    "CH": "Switzerland",
+    "AT": "Austria",
+    "BE": "Belgium",
+    "NL": "Netherlands",
+    "SE": "Sweden",
+    "NO": "Norway",
+    "DK": "Denmark",
+    "FI": "Finland",
+    "IE": "Ireland",
+    "PT": "Portugal",
+    "GR": "Greece",
+    "PL": "Poland",
+    "CZ": "Czech Republic",
+    "HU": "Hungary",
+    "RO": "Romania",
+    "BG": "Bulgaria",
+    "HR": "Croatia",
+    "SI": "Slovenia",
+    "SK": "Slovakia",
+    "EE": "Estonia",
+    "LV": "Latvia",
+    "LT": "Lithuania",
+    "LU": "Luxembourg",
+    "IS": "Iceland",
+    "MT": "Malta",
+    "CY": "Cyprus",
+    
+    "JP": "Japan",
+    "CN": "China",
+    "HK": "Hong Kong",
+    "TW": "Taiwan",
+    "KR": "South Korea",
+    "SG": "Singapore",
+    "MY": "Malaysia",
+    "TH": "Thailand",
+    "ID": "Indonesia",
+    "PH": "Philippines",
+    "VN": "Vietnam",
+    "IN": "India",
+    "AU": "Australia",
+    "NZ": "New Zealand",
+    "PK": "Pakistan",
+    "BD": "Bangladesh",
+    "LK": "Sri Lanka",
+    "MM": "Myanmar",
+    "KH": "Cambodia",
+    "LA": "Laos",
+    "BN": "Brunei",
+    
+    "AE": "United Arab Emirates",
+    "SA": "Saudi Arabia",
+    "QA": "Qatar",
+    "KW": "Kuwait",
+    "BH": "Bahrain",
+    "OM": "Oman",
+    "IL": "Israel",
+    "TR": "Turkey",
+    "JO": "Jordan",
+    "LB": "Lebanon",
+    "EG": "Egypt",
+    
+    "BR": "Brazil",
+    "AR": "Argentina",
+    "CL": "Chile",
+    "CO": "Colombia",
+    "PE": "Peru",
+    "UY": "Uruguay",
+    "PY": "Paraguay",
+    "EC": "Ecuador",
+    "VE": "Venezuela",
+    "CR": "Costa Rica",
+    "PA": "Panama",
+    "GT": "Guatemala",
+    
+    "ZA": "South Africa",
+    "MA": "Morocco",
+    "TN": "Tunisia",
+    "KE": "Kenya",
+    "NG": "Nigeria",
+    "GH": "Ghana",
+    
+    "RU": "Russia",
+    "UA": "Ukraine",
+    "KZ": "Kazakhstan",
+    "BY": "Belarus"
+  },
+
+  "regions": {
+    "north_america": ["US", "CA", "MX"],
+    "europe": [
+      "GB", "FR", "DE", "IT", "ES", "CH", "AT", "BE", "NL", "SE", "NO", "DK", "FI",
+      "IE", "PT", "GR", "PL", "CZ", "HU", "RO", "BG", "HR", "SI", "SK", "EE", "LV", "LT",
+      "LU", "IS", "MT", "CY"
+    ],
+    "asia_pacific": [
+      "JP", "CN", "HK", "TW", "KR", "SG", "MY", "TH", "ID", "PH", "VN", "IN",
+      "AU", "NZ", "PK", "BD", "LK", "MM", "KH", "LA", "BN"
+    ],
+    "middle_east": [
+      "AE", "SA", "QA", "KW", "BH", "OM", "IL", "TR", "JO", "LB", "EG"
+    ],
+    "south_america": [
+      "BR", "AR", "CL", "CO", "PE", "UY", "PY", "EC", "VE", "CR", "PA", "GT"
+    ],
+    "africa": [
+      "ZA", "MA", "TN", "KE", "NG", "GH"
+    ],
+    "eastern_europe_cis": [
+      "RU", "UA", "KZ", "BY"
+    ],
+    "world": []
+  },
+
+  "tier_1_markets": {
+    "description": "Primary luxury watch markets - highest priority",
+    "countries": [
+      "US", "GB", "FR", "DE", "IT", "ES", "CH", "JP", "CN", "HK", "SG", "AU", "AE", "CA"
+    ]
+  },
+
+  "tier_2_markets": {
+    "description": "Secondary luxury watch markets - good coverage",
+    "countries": [
+      "AT", "BE", "NL", "SE", "NO", "DK", "KR", "TW", "MY", "TH", "IN", "NZ", "SA", "QA", "BR", "MX", "AR"
+    ]
+  },
+
+  "tier_3_markets": {
+    "description": "Emerging/developing watch markets - may have limited stores",
+    "countries": [
+      "FI", "IE", "PT", "GR", "PL", "CZ", "ID", "PH", "VN", "KW", "BH", "OM", "IL", "TR", "CL", "CO", "ZA"
+    ]
+  }
+}
+

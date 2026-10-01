@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    {
+      "source": "/backend/:path*",
+      "destination": "https://backend-production-033e.up.railway.app/backend/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Permissions-Policy",
+          "value": "geolocation=*"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+
+# Local DB backups (normalize-db-countries.ts, etc.)
+backups/
+
+# Database
+*.db
+*.db-journal
+prisma/migrations/
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+/*.md
+*.md
+/backend/*.md

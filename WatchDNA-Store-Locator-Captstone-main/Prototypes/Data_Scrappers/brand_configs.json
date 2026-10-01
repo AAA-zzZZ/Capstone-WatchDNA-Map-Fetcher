@@ -1,0 +1,894 @@
+{
+  "_README": {
+    "description": "Brand configurations for store locator scraping",
+    "usage": "Select a brand, modify the URL if needed, and start scraping",
+    "add_new_brand": "Copy a similar 'type' configuration and update the URL and field mappings",
+    "optional_keys": {
+      "display_name": "Canonical human-readable brand name for the master CSV Brands column (e.g. 'BAUME & MERCIER'). If omitted, a normalized version of the config key is used.",
+      "custom_headers": "Dict of HTTP headers injected on every request for this brand (e.g. {\"Accept\": \"application/json\"}).",
+      "url_base": "Base URL used to reconstruct relative store-detail URLs (e.g. 'https://www.omegawatches.com/en-us').",
+      "use_watch_store_countries": "Set to true to use comprehensive 88-country list from watch_store_countries.json",
+      "countries": "Provide custom countries object if you want to override the comprehensive list",
+      "worldwide_country_pagination": "If true and type is json: force country_filter strategy — iterate countries (watch_store_countries or countries) and follow offset/per pagination per country. Does not affect brands without this flag.",
+      "geohash_prefix_expansion": "If set (object), enables geohash-prefix sharding strategy. The scraper enumerates all prefixes of prefix_length (default 2) over the geohash alphabet and fetches {url}/{prefix} for each. Keys: prefix_length (int, default 2), alphabet (str, default standard 32-char geohash), items_key (str, default 'items'), delay (float seconds between requests, default 0.15). Example: Casio locator.",
+      "stores_by_api_countries": "Object for APIs that publish a country catalog JSON, then one store list per country id. Keys: countries_url (GET), countries_list_path (dot path to array, default \"countries\"), country_id_field (default \"id\"), country_name_field (default \"name\", injected on each store), stores_url_template (must include {country_id}), inject_country_name_field (default \"_api_country_name\"; empty string to disable). Optional radius_expansion_delay_seconds between country requests.",
+      "viewport_grid_size": "Optional degrees per viewport cell for type viewport (default 20). Smaller values = more API calls, better coverage if the API caps results per bbox (e.g. Rolex).",
+      "pagination_fetch_urls": "Optional list of full URLs. When non-empty, the scraper GETs each URL in order, extracts the store array (data_path + standard fallbacks), merges results, and dedupes by id. Use for offset/per APIs where pages are fixed or total metadata is missing. Works with type json (runs before single_call). Optional radius_expansion_delay_seconds sets pause between requests (default 0.3s).",
+      "row_filters": "Optional list of filter rules applied to raw store records after collection, before normalization. Each rule: { field (dot-notation path, e.g. 'extra_fields.Rank'), op (eq|in|not_in|contains, default eq), value or values }. All rules are ANDed. Absent or empty = no filtering (all other brands unaffected).",
+      "force_radius_multi_point": "If true, always runs multi-center radius expansion when the URL (or radius_expansion_radius) supplies a distance and the URL or radius_expansion_centers supplies centers. Use when auto-detection or type=json would otherwise take a single-call path but the API is actually region-scoped.",
+      "radius_expansion_centers": "Optional list of search centers instead of the built-in world/region city grid. Each entry: { \"name\": \"City\", \"lat\": 40.1, \"lng\": -74.0 } or [ \"City\", 40.1, -74.0 ]. When set, region presets do not filter this list.",
+      "radius_expansion_radius": "Optional string or number override for the distance parameter (same units the API expects, e.g. miles).",
+      "radius_expansion_delay_seconds": "Optional pause between pagination/radius requests (default 0.3).",
+      "radius_lat_param": "Optional query key for latitude when using radius_expansion_centers without lat/long in the template URL (default \"lat\").",
+      "radius_lng_param": "Optional query key for longitude in the same situation (default \"long\").",
+      "field_mapping_join": "Per-field object form: {\"join\": [\"data.street\", \"data.number\"], \"separator\": \" \", \"skip_tokens\": [\"N/A\"]}. Concatenates dot-path values; skips empty/N/A and drops a segment if it is a substring of an already-kept segment (avoids duplicate street lines).",
+      "flatten_grouped_stores": "When the API returns country/region groups each holding an array of stores: {\"path\": \"retailers.items\", \"list_key\": \"retailers\"}. The scraper flattens every group's list into one array before field mapping (WordPress / grouped JSON).",
+      "see": "COUNTRY_CONFIG_GUIDE.md for details on country configuration"
+    }
+  },
+  "rolex_retailers": {
+    "type": "viewport",
+    "url": "https://retailers.rolex.com/app/establishments/by_viewport/light?brand=RLX%2CRCPO&northEastLat=50.0&northEastLng=10.0&southWestLat=40.0&southWestLng=-10.0&langCode=en-us&establishmentType=SERVICECENTER%2CSTORE",
+    "description": "Rolex Official Retailers API — viewport expansion walks the world; matches live site (RLX+RCPO, service centers + stores).",
+    "method": "GET",
+    "display_name": "ROLEX",
+    "url_base": "https://www.rolex.com",
+    "viewport_grid_size": 10,
+    "custom_headers": {
+      "Origin": "https://www.rolex.com",
+      "Referer": "https://www.rolex.com/",
+      "Accept": "application/json"
+    },
+    "data_path": "",
+    "field_mapping": {
+      "Name": [
+        "nameTranslated",
+        "shortName",
+        "name",
+        "establishment_name"
+      ],
+      "Address Line 1": [
+        "streetAddress",
+        "shortAddress",
+        "address"
+      ],
+      "City": [
+        "cityName",
+        "city"
+      ],
+      "State/Province/Region": [
+        "regionName",
+        "state",
+        "province"
+      ],
+      "Country": [
+        "countryName",
+        "country"
+      ],
+      "Postal/ZIP Code": [
+        "postalCode",
+        "zipCode",
+        "zip"
+      ],
+      "Phone": [
+        "phone1",
+        "phone"
+      ],
+      "Email": ["email"],
+      "Website": [
+        "urlRolexV7",
+        "website"
+      ],
+      "Latitude": [
+        "lat",
+        "latitude"
+      ],
+      "Longitude": [
+        "lng",
+        "longitude"
+      ]
+    }
+  },
+  "omega_stores": {
+    "type": "html",
+    "url": "https://www.omegawatches.com/en-us/store-locator",
+    "method": "GET",
+    "description": "HTML page with store data",
+    "display_name": "OMEGA",
+    "url_base": "https://www.omegawatches.com/en-us",
+    "enabled": true
+  },
+  "alange_soehne_stores": {
+    "type": "json",
+    "url": "https://www.alange-soehne.com/us-en/api/search/store/locator?boutiqueOnly=false",
+    "description": "A. Lange & Söhne Store Locator - Single call API returns all stores ✅",
+    "method": "GET",
+    "display_name": "A. LANGE & SÖHNE",
+    "data_path": "data",
+    "field_mapping": {
+      "Handle": "id",
+      "Name": "name",
+      "Address Line 1": "address1",
+      "Address Line 2": "address2",
+      "City": "city",
+      "Country": "country",
+      "Postal/ZIP Code": "zip",
+      "Phone": "phone",
+      "Website": "permalink",
+      "Latitude": "lat",
+      "Longitude": "lng"
+    }
+  },
+  "alpina_stores": {
+    "type": "json",
+    "url": "https://us.alpinawatches.com/on/demandware.store/Sites-alpina_us-Site/en_US/Stores-FindStores?showMap=true&radius=25000&lat=0&long=0",
+    "description": "Alpina Watches Store Locator (U.S.) - Radius-based API",
+    "method": "GET",
+    "display_name": "ALPINA",
+    "data_path": "stores",
+    "field_mapping": {
+      "Handle": "ID",
+      "Name": "name",
+      "Address Line 1": "address1",
+      "Address Line 2": "address2",
+      "City": "city",
+      "State/Province/Region": "stateCode",
+      "Country": "countryCode",
+      "Postal/ZIP Code": "postalCode",
+      "Phone": "phone",
+      "Latitude": "latitude",
+      "Longitude": "longitude"
+    }
+  },
+  "citizen_watch_stores": {
+    "type": "json",
+    "url": "https://www.citizenwatch.com/on/demandware.store/Sites-citizen_US-Site/en_US/Stores-FindStores?showMap=false&radius=150&address1=&lat=40.7127753&long=-74.0059728&postalCode=",
+    "description": "Citizen Watch US — Demandware Stores-FindStores. Multi-point radius expansion runs automatically; set scraper region (e.g. north_america, world) for coverage. Optional: radius_expansion_centers / radius_expansion_radius in config.",
+    "method": "GET",
+    "display_name": "CITIZEN",
+    "custom_headers": {
+      "Accept": "application/json"
+    },
+    "data_path": "stores",
+    "radius_expansion_radius": 150,
+    "field_mapping": {
+      "Handle": "ID",
+      "Name": "name",
+      "Address Line 1": "address1",
+      "Address Line 2": "address2",
+      "City": "city",
+      "State/Province/Region": "stateCode",
+      "Country": "countryCode",
+      "Postal/ZIP Code": "postalCode",
+      "Phone": "phone",
+      "Latitude": "latitude",
+      "Longitude": "longitude"
+    }
+  },
+  "custom_json_api": {
+    "type": "json",
+    "url": "https://api.yourbrand.com/stores",
+    "description": "Template: Standard JSON API - Customize URL and field mapping",
+    "method": "GET",
+    "enabled": false,
+    "data_path": "data.stores",
+    "field_mapping": {
+      "Name": [
+        "name",
+        "store_name",
+        "title"
+      ],
+      "Address Line 1": [
+        "address",
+        "address1",
+        "street"
+      ],
+      "Address Line 2": [
+        "address2",
+        "suite"
+      ],
+      "City": [
+        "city",
+        "city_name"
+      ],
+      "State/Province/Region": [
+        "state",
+        "province",
+        "region"
+      ],
+      "Country": [
+        "country",
+        "country_code"
+      ],
+      "Postal/ZIP Code": [
+        "zip",
+        "postal_code",
+        "zipcode"
+      ],
+      "Phone": [
+        "phone",
+        "telephone"
+      ],
+      "Email": [
+        "email",
+        "contact_email"
+      ],
+      "Website": [
+        "website",
+        "url"
+      ],
+      "Latitude": [
+        "latitude",
+        "lat"
+      ],
+      "Longitude": [
+        "longitude",
+        "lng",
+        "lon"
+      ]
+    }
+  },
+  "shopify_store_locator": {
+    "type": "json",
+    "url": "https://yourstore.myshopify.com/apps/store-locator/locations.json",
+    "description": "Template: Shopify Store Locator App - Common structure",
+    "method": "GET",
+    "enabled": false,
+    "data_path": "locations",
+    "field_mapping": {
+      "Name": [
+        "name",
+        "title"
+      ],
+      "Address Line 1": [
+        "address",
+        "address_1"
+      ],
+      "Address Line 2": "address_2",
+      "City": "city",
+      "State/Province/Region": [
+        "province",
+        "state"
+      ],
+      "Country": "country",
+      "Postal/ZIP Code": [
+        "zip",
+        "postal_code"
+      ],
+      "Phone": "phone",
+      "Email": ["email"],
+      "Latitude": [
+        "lat",
+        "latitude"
+      ],
+      "Longitude": [
+        "lng",
+        "longitude"
+      ]
+    }
+  },
+  "nested_json_deep": {
+    "type": "json",
+    "url": "https://api.yourbrand.com/v2/locations",
+    "description": "Template: Deeply nested JSON - Uses dot notation for data_path",
+    "method": "GET",
+    "enabled": false,
+    "data_path": "response.data.locations.items",
+    "field_mapping": {
+      "Name": "location.name",
+      "Address Line 1": "location.address.street",
+      "City": "location.address.city",
+      "State/Province/Region": "location.address.state",
+      "Country": "location.address.country",
+      "Postal/ZIP Code": "location.address.postal_code",
+      "Latitude": "location.coordinates.lat",
+      "Longitude": "location.coordinates.lng"
+    }
+  },
+  "html_bootstrap_cards": {
+    "type": "html",
+    "url": "https://yourwebsite.com/locations",
+    "description": "Template: HTML page with store cards - Typical structure",
+    "method": "GET",
+    "enabled": false,
+    "card_selector": ".store-card, .location-item, [data-store]",
+    "selectors": {
+      "Name": ".store-name, h3, h4",
+      "Address Line 1": ".address, .street",
+      "City": ".city",
+      "State/Province/Region": ".state, .province",
+      "Country": ".country",
+      "Postal/ZIP Code": ".zip, .postal",
+      "Phone": ".phone, a[href^='tel:']",
+      "Email": ".email, a[href^='mailto:']",
+      "Website": "a.website|href"
+    },
+    "data_attributes": {
+      "Latitude": "data-lat",
+      "Longitude": "data-lng",
+      "Handle": "data-id"
+    }
+  },
+  "wordpress_wp_store_locator": {
+    "type": "html",
+    "url": "https://yoursite.com/store-locator/",
+    "description": "Template: WordPress WP Store Locator plugin",
+    "method": "GET",
+    "enabled": false,
+    "card_selector": ".wpsl-store-location",
+    "selectors": {
+      "Name": ".wpsl-store-name",
+      "Address Line 1": ".wpsl-street",
+      "City": ".wpsl-city",
+      "State/Province/Region": ".wpsl-state",
+      "Postal/ZIP Code": ".wpsl-zip",
+      "Country": ".wpsl-country",
+      "Phone": ".wpsl-phone"
+    },
+    "data_attributes": {
+      "Latitude": "data-lat",
+      "Longitude": "data-lng"
+    }
+  },
+  "google_maps_embedded": {
+    "type": "html",
+    "url": "https://yoursite.com/find-us",
+    "description": "Template: Site with embedded Google Maps markers",
+    "method": "GET",
+    "enabled": false,
+    "card_selector": ".map-marker, [data-marker]",
+    "selectors": {
+      "Name": ".marker-title, h3",
+      "Address Line 1": ".marker-address",
+      "Phone": ".marker-phone"
+    },
+    "data_attributes": {
+      "Latitude": "data-lat",
+      "Longitude": "data-lng",
+      "Name": "data-title"
+    }
+  },
+  "blancpain_stores": {
+    "type": "html",
+    "url": "https://www.blancpain.com/en-us/service/points-sale",
+    "description": "Blancpain Store Locator - HTML page with structured store information ✅",
+    "method": "GET",
+    "display_name": "BLANCPAIN"
+  },
+  "edox_stores": {
+    "type": "html",
+    "url": "https://www.edox.ch/wp-admin/admin-ajax.php?locationId=-1&action=sale_country&lang=en",
+    "description": "Edox (WordPress): admin-ajax sale_country returns HTML with .sm-block[data-latlng] dealers; locationId=-1 lists all. ✅",
+    "method": "GET",
+    "display_name": "EDOX",
+    "enabled": true,
+    "custom_headers": {
+      "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8"
+    },
+    "_note": "Scraper uses extract_stores_from_sm_block_data_latlng() for this markup. Other locationId values filter by city/region on the live site."
+  },
+  "breitling_stores": {
+    "type": "json",
+    "worldwide_country_pagination": true,
+    "url": "https://store.breitling.com/en?country=US&qp=United+States&r=1000&l=en&per=50&offset=0",
+    "description": "Breitling (Yext): Accept: application/json; worldwide_country_pagination walks every country from watch_store_countries and all offset pages (per=50). ✅",
+    "method": "GET",
+    "display_name": "BREITLING",
+    "custom_headers": {
+      "Accept": "application/json"
+    },
+    "data_path": "response.entities",
+    "field_mapping": {
+      "Handle": "profile.meta.id",
+      "Name": "profile.name",
+      "Address Line 1": "profile.address.line1",
+      "Address Line 2": "profile.address.line2",
+      "City": "profile.address.city",
+      "State/Province/Region": "profile.address.region",
+      "Country": "profile.address.countryCode",
+      "Postal/ZIP Code": "profile.address.postalCode",
+      "Phone": "profile.mainPhone.display",
+      "Email": "profile.emails.0",
+      "Website": [
+        "profile.websiteUrl.url",
+        "profile.websiteUrl"
+      ],
+      "Latitude": "profile.geocodedCoordinate.lat",
+      "Longitude": "profile.geocodedCoordinate.long"
+    },
+    "use_watch_store_countries": true,
+    "_note": "When use_watch_store_countries is true, scraper uses comprehensive list from watch_store_countries.json. Set to false and provide 'countries' object to use custom list."
+  },
+  "bell_ross": {
+    "type": "radius",
+    "url": "https://stores.bellross.com/search?r=500&lat=0&long=0&per=50&offset=0",
+    "method": "GET",
+    "description": "Radius-based search API with offset pagination, returns 50 stores per page. Uses radius=2000km from Paris center point. Scraper follows all pages (offset 0, 50, 100…) and uses multiple center points worldwide to get all stores ✅",
+    "display_name": "BELL & ROSS",
+    "custom_headers": { "Accept": "application/json" },
+    "enabled": true,
+    "data_path": "response.entities",
+    "field_mapping": {
+      "Latitude": "profile.geocodedCoordinate.lat",
+      "Longitude": "profile.geocodedCoordinate.long",
+      "City": "profile.address.city",
+      "Name": "profile.name",
+      "Address Line 1": "profile.address.line1",
+      "Address Line 2": "profile.address.line2",
+      "Country": "profile.address.countryCode",
+      "Phone": "profile.mainPhone.display",
+      "Email": "profile.emails",
+      "Website": "url",
+      "Handle": "profile.meta.id"
+    },
+    "_note": "This endpoint uses radius search. When paginated (per=50&offset=0), the scraper automatically follows all pages to get every store; it also uses multiple center points worldwide when needed."
+  },
+  "audemars_piguet": {
+    "type": "paginated",
+    "url": "https://www.audemarspiguet.com/com/en/stores.yextentities.json?languages=en&limit=50",
+    "method": "GET",
+    "description": "Paginated API - Returns stores in pages. Universal scraper will follow pagination. - Universal scraper handles pagination automatically",
+    "display_name": "AUDEMARS PIGUET",
+    "enabled": true,
+    "data_path": "entities",
+    "field_mapping": {
+      "Latitude": "yextDisplayCoordinate.latitude",
+      "Longitude": "yextDisplayCoordinate.longitude",
+      "City": "address.city",
+      "Name": "name",
+      "Address Line 1": "address.line1",
+      "Address Line 2": "address.line1",
+      "Country": "address.countryCode",
+      "Postal/ZIP Code": "address.postalCode",
+      "Phone": "mainPhone",
+      "Email": "emails",
+      "Handle": "meta.id"
+    },
+    "_note": "This endpoint uses pagination. The universal scraper will automatically follow all pages."
+  },
+  "bulgari_stores": {
+    "type": "radius",
+    "url": "https://www.bulgari.com/en-us/storelocator?country-region=US&l=en_US&per=50&offset=0",
+    "method": "GET",
+    "description": "Country-filter API - Change country param (e.g. country-region=US to IT, FR) for worldwide stores. Universal scraper iterates through all countries automatically.",
+    "display_name": "BULGARI",
+    "enabled": true,
+    "data_path": "response.entities",
+    "field_mapping": {
+      "Latitude": "profile.geocodedCoordinate.lat",
+      "Longitude": "profile.geocodedCoordinate.long",
+      "City": "profile.address.city",
+      "Name": "profile.name",
+      "Address Line 1": "profile.address.line1",
+      "State/Province/Region": "profile.address.region",
+      "Country": "derivedData.address.countryName",
+      "Postal/ZIP Code": "profile.address.postalCode",
+      "Phone": "profile.mainPhone.display",
+      "Email": "profile.c_baaEmail",
+      "Website": "profile.websiteUrl.url",
+      "Handle": "profile.meta.id"
+    },
+    "_note": "This endpoint filters by country. To get all stores worldwide, iterate country-region (or country) param: US, IT, FR, DE, etc. Scraper uses comprehensive country list."
+  },
+  "benrus": {
+    "type": "single_call",
+    "url": "https://benrus.com/en-us/retailers",
+    "method": "GET",
+    "description": "Pure HTML - no API. Retailer locations rendered in page. Scraper extracts from retailer card DOM.",
+    "display_name": "BENRUS",
+    "enabled": true,
+    "_note": "No network API - stores extracted from server-rendered HTML (retailer cards with h3, address, Google Maps link)."
+  },
+  "ball_watch": {
+    "type": "country_filter",
+    "url": "https://www.ballwatch.com/index.php?route=tool%2Fstore_locator&ajax=1&is_locate_me=1&country_id=223",
+    "method": "GET",
+    "description": "OpenCart store locator - country_id filters by country. 223=US. Returns JSON with stores array.",
+    "display_name": "BALL",
+    "enabled": true,
+    "data_path": "stores",
+    "field_mapping": {
+      "Name": "name",
+      "Address Line 1": "address",
+      "City": "city",
+      "State/Province/Region": "zone_name",
+      "Country": "country_name",
+      "Postal/ZIP Code": "postcode",
+      "Phone": "phone",
+      "Email": "email",
+      "Website": "website",
+      "Latitude": "lat",
+      "Longitude": "lng",
+      "Handle": "store_id"
+    },
+    "use_watch_store_countries": true,
+    "country_id_map": {
+      "US": "223",
+      "CA": "38",
+      "GB": "222",
+      "FR": "75",
+      "DE": "81",
+      "IT": "105",
+      "ES": "195",
+      "CH": "205",
+      "AU": "13",
+      "JP": "107"
+    },
+    "_note": "country_id uses OpenCart numeric IDs. Scraper iterates countries via country_id_map (ISO->numeric). Add more mappings as needed - IDs may vary by OpenCart install."
+  },
+  "bomberg_watches": {
+    "type": "json",
+    "url": "https://storemapper-herokuapp-com.global.ssl.fastly.net/api/users/36220-oTIkXUu6J1dXYjyu/stores.js?callback=SMcallback2",
+    "method": "GET",
+    "description": "JSON API - Single call returns all stores",
+    "display_name": "BOMBERG",
+    "enabled": true,
+    "data_path": "stores",
+    "field_mapping": {
+      "Latitude": "latitude",
+      "Longitude": "longitude",
+      "Name": "name",
+      "Address Line 1": "address",
+      "Phone": "phone",
+      "Email": "email",
+      "Website": "directions_url",
+      "Handle": "id",
+      "_parse_combined_address": "address"
+    }
+  },
+  "bremont_watches": {
+    "type": "json",
+    "url": "https://stockist.co/api/v1/u3131/locations/all",
+    "method": "GET",
+    "description": "JSON API - Single call returns all stores",
+    "display_name": "BREMONT",
+    "enabled": true,
+    "field_mapping": {
+      "Latitude": "latitude",
+      "Longitude": "longitude",
+      "Name": "name",
+      "Phone": "phone",
+      "Website": "website",
+      "Handle": "id",
+      "Address Line 1": [
+        "address_line_1",
+        "full_address"
+      ],
+      "Address Line 2": "address_line_2",
+      "City": "city",
+      "State/Province/Region": "state",
+      "Country": "country",
+      "Postal/ZIP Code": "postal_code"
+    }
+  },
+  "baume_mercier": {
+    "type": "json",
+    "url": "https://www.baume-et-mercier.com/us/en/stores.stores-with-hours.retailer-other.json",
+    "method": "GET",
+    "description": "JSON API - Single call returns all stores",
+    "display_name": "BAUME & MERCIER",
+    "enabled": true,
+    "field_mapping": {
+      "Latitude": "location.latitude",
+      "Longitude": "location.longitude",
+      "City": "address.city",
+      "Name": "name",
+      "Address Line 1": "address.street",
+      "Address Line 2": "address.street2",
+      "State/Province/Region": "address.state",
+      "Country": "address.country",
+      "Postal/ZIP Code": "address.zipCode",
+      "Phone": "phoneNumber",
+      "Email": "email",
+      "Website": "website",
+      "Handle": "id"
+    }
+  },
+  "rolex_stores": {
+    "type": "html",
+    "url": "https://www.rolex.com/en-us/store-locator/",
+    "method": "GET",
+    "description": "HTML page with store data",
+    "display_name": "ROLEX",
+    "enabled": true
+  },
+  "bulova_stores": {
+    "type": "html",
+    "url": "https://www.bulova.com/us/en/store-locator/?showMap=true&horizontalView=true&isForm=true",
+    "method": "GET",
+    "description": "Bulova (SFCC) — storefront HTML with data-locations pins; or use Stores-FindStores?postalCode=&radius= for JSON.",
+    "display_name": "BULOVA",
+    "enabled": true
+  },
+  "calvin_klein_stores": {
+    "type": "paginated",
+    "url": "https://prod-cdn.us.yextapis.com/v2/accounts/me/search/vertical/query?experienceKey=calvin-klein-locator-usa&api_key=e922a5467c105dbc672e892b1c6a6564&v=20220511&version=PRODUCTION&locale=en-US&input=&verticalKey=usa-locations&limit=50&offset=0&retrieveFacets=false&skipSpellCheck=true&sortBys=%5B%5D&source=STANDARD",
+    "method": "GET",
+    "description": "Calvin Klein US (Yext vertical search): limit=50 & offset pagination on prod-cdn.us.yextapis.com; universal scraper walks offsets until resultsCount is reached or a short page.",
+    "display_name": "CALVIN KLEIN",
+    "enabled": true,
+    "custom_headers": {
+      "Accept": "application/json"
+    },
+    "url_base": "https://stores.calvinklein.us",
+    "field_mapping": {
+      "Handle": "id",
+      "Name": "name",
+      "Address Line 1": "address.line1",
+      "Address Line 2": "address.line2",
+      "City": "address.city",
+      "State/Province/Region": "address.region",
+      "Country": "address.countryCode",
+      "Postal/ZIP Code": "address.postalCode",
+      "Phone": "mainPhone",
+      "Latitude": "yextDisplayCoordinate.latitude",
+      "Longitude": "yextDisplayCoordinate.longitude"
+    },
+    "_note": "Public search experience key + api_key from the live locator page. verticalKey=usa-locations; ~120 US stores = three pages at limit=50."
+  },
+  "casio_stores": {
+    "type": "json",
+    "url": "https://locator.casio.com/api/points",
+    "description": "Casio Official Store Locator — geohash-prefix sharded API. Root returns total count + empty items; stores are fetched by 2-char geohash prefix (1,024 requests). ✅",
+    "method": "GET",
+    "display_name": "CASIO",
+    "data_path": "items",
+    "geohash_prefix_expansion": {
+      "prefix_length": 2,
+      "alphabet": "0123456789bcdefghjkmnpqrstuvwxyz",
+      "items_key": "items",
+      "delay": 0.15
+    },
+    "row_filters": [
+      {
+        "field": "extra_fields.Rank",
+        "op": "in",
+        "values": ["2"],
+        "_comment": "Rank 2 = official G-Shock / Casio boutiques only. Rank 10 = authorized dealers (dept stores), Rank 15 = shop-in-shop. Keeping only Rank 2 avoids merging hypermarkets, bookstores, and clothing chains into existing watch boutique records."
+      }
+    ],
+    "field_mapping": {
+      "Handle": "key",
+      "Name": "name",
+      "Address Line 1": "address",
+      "City": "extra_fields.City",
+      "State/Province/Region": "extra_fields.Area",
+      "Phone": "extra_fields.Phone 1",
+      "Website": "extra_fields.Link URL 1",
+      "Latitude": "latitude",
+      "Longitude": "longitude"
+    },
+    "_note": "Country field (extra_fields.Country) is a numeric Casio country ID, not a name. batch_normalize will infer country from address. To include authorized dealers add '10' to the row_filters values list; add '15' for shop-in-shop locations."
+  },
+  "coach_stores": {
+    "type": "json",
+    "url": "https://www.coach.com/stores/store-locator?coachstoretype=5988915&per=50&l=en",
+    "method": "GET",
+    "description": "Coach (Yext): Accept application/json; response.entities with profile.* (same shape as Breitling). pagination_fetch_urls = per=50 offsets 0, 50, 100 (~130 stores). Add URLs if count grows.",
+    "display_name": "COACH",
+    "enabled": true,
+    "custom_headers": {
+      "Accept": "application/json"
+    },
+    "url_base": "https://www.coach.com",
+    "data_path": "response.entities",
+    "pagination_fetch_urls": [
+      "https://www.coach.com/stores/store-locator?coachstoretype=5988915&per=50&l=en",
+      "https://www.coach.com/stores/store-locator?coachstoretype=5988915&l=en&per=50&offset=50",
+      "https://www.coach.com/stores/store-locator?coachstoretype=5988915&l=en&per=50&offset=100"
+    ],
+    "field_mapping": {
+      "Handle": "profile.meta.id",
+      "Name": "profile.name",
+      "Address Line 1": "profile.address.line1",
+      "Address Line 2": "profile.address.line2",
+      "City": "profile.address.city",
+      "State/Province/Region": "profile.address.region",
+      "Country": [
+        "derivedData.address.countryName",
+        "profile.address.countryCode"
+      ],
+      "Postal/ZIP Code": "profile.address.postalCode",
+      "Phone": "profile.mainPhone.display",
+      "Email": "profile.emails.0",
+      "Website": [
+        "profile.websiteUrl.url",
+        "profile.websiteUrl",
+        "profile.googleWebsiteOverride",
+        "profile.c_pagesURLFullPrice"
+      ],
+      "Latitude": "profile.geocodedCoordinate.lat",
+      "Longitude": "profile.geocodedCoordinate.long"
+    }
+  },
+  "fortis_stores": {
+    "type": "json",
+    "url": "https://api.storepoint.co/v1/1673cc408f05f8/locations?rq",
+    "description": "Fortis — Storepoint JSON API (success + results.locations). Single GET returns all dealers/service centers. ✅",
+    "method": "GET",
+    "display_name": "FORTIS",
+    "enabled": true,
+    "custom_headers": {
+      "Accept": "application/json"
+    },
+    "data_path": "results.locations",
+    "field_mapping": {
+      "_parse_combined_address": "streetaddress",
+      "Handle": "id",
+      "Name": "name",
+      "Address Line 1": "streetaddress",
+      "Phone": "phone",
+      "Email": "email",
+      "Website": "website",
+      "Latitude": "loc_lat",
+      "Longitude": "loc_long",
+      "Page Description": "description",
+      "Monday": "monday",
+      "Tuesday": "tuesday",
+      "Wednesday": "wednesday",
+      "Thursday": "thursday",
+      "Friday": "friday",
+      "Saturday": "saturday",
+      "Sunday": "sunday",
+      " Tags": "tags"
+    }
+  },
+  "frederique_constant_stores": {
+    "type": "json",
+    "url": "https://retailers.frederiqueconstant.com/api/maps/fc/retailers",
+    "method": "GET",
+    "description": "Frederique Constant official retailers map API — single GET returns a root JSON array; store fields live under `data.*` (city, route, lat/lng, etc.). ✅",
+    "display_name": "FREDERIQUE CONSTANT",
+    "enabled": true,
+    "custom_headers": {
+      "Accept": "application/json"
+    },
+    "data_path": "",
+    "field_mapping": {
+      "Handle": "id",
+      "Name": [
+        "title",
+        "data.name"
+      ],
+      "Address Line 1": {
+        "join": [
+          "data.street_number",
+          "data.route"
+        ],
+        "separator": " ",
+        "skip_tokens": [
+          "N/A",
+          "n/a"
+        ]
+      },
+      "City": "data.city",
+      "State/Province/Region": "data.state",
+      "Country": [
+        "data.country_name",
+        "data.country"
+      ],
+      "Postal/ZIP Code": "data.zip_code",
+      "Phone": "data.phone",
+      "Email": "data.email",
+      "Website": "data.website",
+      "Latitude": [
+        "data.lat",
+        "data.latitude"
+      ],
+      "Longitude": [
+        "data.lng",
+        "data.longitude"
+      ],
+      " Tags": "categories"
+    }
+  },
+  "glashuette_original_stores": {
+    "type": "json",
+    "url": "https://www.glashuette-original.com/wp/wp-admin/admin-ajax.php?action=get_retailers&locale=en",
+    "method": "GET",
+    "description": "Glashütte Original — WordPress admin-ajax get_retailers JSON; stores are nested under retailers.items[].retailers[]. Opening hours in opening_hours.*; no coordinates (geocoded in pipeline). ✅",
+    "display_name": "GLASHÜTTE ORIGINAL",
+    "enabled": true,
+    "custom_headers": {
+      "Accept": "application/json, text/javascript, */*;q=0.01",
+      "X-Requested-With": "XMLHttpRequest",
+      "Referer": "https://www.glashuette-original.com/en/"
+    },
+    "url_base": "https://www.glashuette-original.com",
+    "flatten_grouped_stores": {
+      "path": "retailers.items",
+      "list_key": "retailers"
+    },
+    "field_mapping": {
+      "Handle": "id",
+      "Name": "name",
+      "Address Line 1": "address",
+      "Address Line 2": "address_locale",
+      "City": "city",
+      "State/Province/Region": "city_slug",
+      "Country": "country",
+      "Postal/ZIP Code": "zipcode",
+      "Phone": "phone",
+      "Email": "email",
+      "Website": [
+        "link",
+        "www"
+      ],
+      "Image URL": "image",
+      "Monday": {
+        "join": [
+          "opening_hours.mo_from",
+          "opening_hours.mo_to",
+          "opening_hours.mo_from_2",
+          "opening_hours.mo_to_2"
+        ],
+        "separator": "-"
+      },
+      "Tuesday": {
+        "join": [
+          "opening_hours.tu_from",
+          "opening_hours.tu_to",
+          "opening_hours.tu_from_2",
+          "opening_hours.tu_to_2"
+        ],
+        "separator": "-"
+      },
+      "Wednesday": {
+        "join": [
+          "opening_hours.we_from",
+          "opening_hours.we_to",
+          "opening_hours.we_from_2",
+          "opening_hours.we_to_2"
+        ],
+        "separator": "-"
+      },
+      "Thursday": {
+        "join": [
+          "opening_hours.th_from",
+          "opening_hours.th_to",
+          "opening_hours.th_from_2",
+          "opening_hours.th_to_2"
+        ],
+        "separator": "-"
+      },
+      "Friday": {
+        "join": [
+          "opening_hours.fr_from",
+          "opening_hours.fr_to",
+          "opening_hours.fr_from_2",
+          "opening_hours.fr_to_2"
+        ],
+        "separator": "-"
+      },
+      "Saturday": {
+        "join": [
+          "opening_hours.sa_from",
+          "opening_hours.sa_to",
+          "opening_hours.sa_from_2",
+          "opening_hours.sa_to_2"
+        ],
+        "separator": "-"
+      },
+      "Sunday": {
+        "join": [
+          "opening_hours.su_from",
+          "opening_hours.su_to",
+          "opening_hours.su_from_2",
+          "opening_hours.su_to_2"
+        ],
+        "separator": "-"
+      },
+      "Page Description": "opening_hours_extras",
+      "Page Title": "prefill_form_country",
+      "Meta Title": "prefill_form_boutique",
+      "Meta Description": "crm_id",
+      " Tags": {
+        "join": [
+          "type",
+          "country_code"
+        ],
+        "separator": ", "
+      }
+    }
+  }
+}

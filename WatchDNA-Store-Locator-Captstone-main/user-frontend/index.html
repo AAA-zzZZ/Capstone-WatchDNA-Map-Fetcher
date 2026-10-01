@@ -1,0 +1,3042 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>WatchDNA Store Locator</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- API origin. Leave empty (default) to use the Railway production backend.
+       Override only for local testing: content="http://localhost:3001" -->
+  <meta name="watchdna-api-origin" content="" />
+
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- MapLibre GL — pinned: v6 dropped the UMD dist/maplibre-gl.js build (ESM-only), so an
+       unpinned URL 404s and takes the whole map down the moment unpkg's latest moves. -->
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+
+  <!-- MapLibre GL Leaflet -->
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
+
+  <!-- PapaParse for CSV -->
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- MarkerCluster plugin -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Cormorant font -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div id="mapLoadingScreen">
+    <div id="mapLoadingContent">
+      <img id="mapLoadingLogo" src="./imgs/watchdna.png" alt="WatchDNA" />
+      <div id="mapLoadingBar">
+        <div id="mapLoadingBarFill"></div>
+      </div>
+    </div>
+  </div>
+  <header id="sidebar">
+    <button id="mapToggleBtn" data-translate data-translate-attr="aria-label,title" aria-label="View map"
+      title="View map">View Map →</button>
+    <div id="top">
+      <div id="inner">
+        <h2 data-translate>WatchDNA's Network | Find jewellers in your area</h2>
+        <p data-translate>As your trusted directory for brands and authorized dealers, WatchDNA makes it easy to find local jewellers.
+          While our AI continuously updates dealer listings, brand availability may vary by location. For added confidence,
+          only manually reviewed AD Verified retailers appear in our Brand Matching filters.
+        </p>
+      </div>
+    </div>
+
+    <div class="filters-actions">
+      <button id="hamburger" data-translate data-translate-attr="title" aria-expanded="false"
+        aria-controls="filtersPanel" title="Show filters">
+        ☰ Filter
+      </button>
+      <button id="clearFiltersBtn" data-translate data-translate-attr="title" type="button" title="Clear all filters"
+        style="display:none;">Clear filters</button>
+    </div>
+
+    <span id="nearMeStatus" data-translate></span>
+
+    <div id="filtersPanel" class="filters-panel" hidden>
+      <div class="filter-lock-toast" id="filterLockToast" data-translate role="alert" aria-live="assertive">
+      </div>
+      <!-- <label for="storeFilter"><strong>Filter by store:</strong></label> -->
+      <div class="store-filter-wrapper">
+        <input id="storeFilter" data-translate data-translate-attr="placeholder" type="search"
+          placeholder="Search by store, city, brand, zip, etc." />
+      </div>
+      <div id="searchResultCount" data-translate></div>
+      <div id="storeCheckboxes">
+        <!-- Store name checkboxes (hidden until user searches) -->
+      </div>
+      <!-- <label><strong>Filter by Type:</strong></label> -->
+      <div id="typeCheckboxes">
+
+        <!-- Watch / Accessory toggle -->
+        <div class="type-toggle-row" data-translate="attrs" data-translate-attr="aria-label" role="group"
+          aria-label="Map category filters (any match)">
+          <span class="type-cat-hint" data-translate style="font-size:0.85em;color:#666;width:100%;">Category (optional
+            — no selection
+            shows all):</span>
+          <label class="type-cat"><input type="checkbox" id="filterCategoryDealer" /> <span data-translate>Verified
+              authorized
+              dealer</span></label>
+          <label class="type-cat"><input type="checkbox" id="filterCategoryBoutique" /> <span data-translate>Boutique
+              verified</span></label>
+          <label class="type-cat"><input type="checkbox" id="filterCategoryService" /> <span data-translate>Service
+              center</span></label>
+        </div>
+
+      </div>
+
+      <label for="brandCheckboxes" data-translate><strong>Filter by Brand:</strong></label>
+      <div id="brandCheckboxes">
+        <!-- Brand checkboxes inserted here -->
+      </div>
+    </div>
+
+    <!-- Store detail panel (hidden by default)-->
+    <div id="storeDetailPanel" class="store-detail hidden" aria-hidden="true">
+      <div class="store-detail__top">
+        <div class="store-detail__title" id="detailName">Store Name</div>
+        <button class="store-detail__close" id="detailCloseBtn" data-translate="attrs"
+          data-translate-attr="aria-label,title" aria-label="Close" title="Close">×</button>
+      </div>
+
+      <div class="store-detail__image" id="detailImage" data-translate="attrs" data-translate-attr="aria-label"
+        role="img" aria-label="Store image placeholder">
+        <div class="store-detail__imageText" data-translate>Image placeholder</div>
+      </div>
+
+      <div class="store-detail__actions">
+        <a id="detailDirectionsBtn" class="store-detail__btn" data-translate href="#" target="_blank"
+          rel="noopener">Directions</a>
+        <a id="detailPhoneBtn" class="store-detail__btn" data-translate href="#">Call</a>
+        <a id="detailConnectBtn" class="store-detail__btn" data-translate href="#">Connect</a>
+      </div>
+
+      <div class="store-detail__section">
+        <div class="store-detail__label" data-translate>Address</div>
+        <div class="store-detail__value" id="detailAddress"></div>
+      </div>
+
+      <div class="store-detail__section">
+        <div class="store-detail__label" data-translate>Phone</div>
+        <div class="store-detail__value" id="detailPhone"></div>
+      </div>
+
+      <div class="store-detail__section" id="detailAboutSection">
+        <div class="store-detail__label" data-translate>Information</div>
+        <div class="store-detail__value" id="detailAbout"></div>
+      </div>
+
+      <div class="store-detail__section" id="detailBrandsSection">
+        <div class="store-detail__label" data-translate>Brands</div>
+        <div class="store-detail__value" id="detailBrands"></div>
+      </div>
+
+    </div>
+
+    <div id="storeListContainer">
+      <div id="viewportCount"></div>
+      <div id="storeListings"></div>
+    </div>
+
+    <!-- Commented out, not deleted because the specific page on the WatchDNA site may or may not be updated or removed. -->
+    <!-- Until we know what the plan is, the code will not be deleted. -->
+    <!-- <div id="footer">
+      <a href="https://watchdna.com/tools/storelocator/directory">Store Directory</a>
+    </div> -->
+
+  </header>
+
+  <button id="menuToggleBtn" data-translate data-translate-attr="aria-label,title" aria-label="Toggle menu"
+    title="Toggle menu">Menu</button>
+
+  <div id="map"></div>
+
+  <div id="mapLoadingOverlay" class="map-loading-overlay" aria-hidden="true">
+    <div class="map-loading-card" role="status" aria-live="polite">
+      <span class="map-loading-spinner" aria-hidden="true"></span>
+      <span class="map-loading-label">Loading…</span>
+    </div>
+  </div>
+
+  <script>
+    // --- Map bootstrap ---
+    // NEW MAP THEME CODE
+    const map = L.map('map', { maxZoom: 19, minZoom: 2, zoomControl: false, worldCopyJump: false }).setView([20, 0], 4);
+    // Vector basemap; if the MapLibre script/plugin fails to load (CDN outage), fall back to
+    // raster tiles instead of throwing — an uncaught error here would kill this whole script
+    // block: no markers, no data, blank page.
+    try {
+      L.maplibreGL({
+        style: 'https://tiles.openfreemap.org/styles/bright',
+      }).addTo(map);
+    } catch (e) {
+      console.error('MapLibre basemap failed — falling back to raster tiles', e);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(map);
+    }
+    const mapBounds = [[-90, -180], [90, 180]];
+    map.setMaxBounds(mapBounds);
+    map.options.maxBoundsViscosity = 1.0;
+
+    setTimeout(() => map.invalidateSize({ animate: false }), 300);
+    setTimeout(() => map.invalidateSize({ animate: false }), 1000);
+    window.addEventListener('load', () => map.invalidateSize({ animate: false }));
+
+    // Removes 'Leaflet' from the attribution; it's not necessary to include it because the requirements of the MIT License
+    // are already fulfilled within the Leaflet source code we are using.
+    map.attributionControl.setPrefix('');
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    // Default zoom out logic. Will be used if user did not use Near Me features
+    const originalCenter = map.getCenter();
+    const originalZoom = map.getZoom();
+
+    // Should help with location retention issues with Near Me feature
+    let cachedLatLng = null;
+    let lastLocationTime = 0;
+
+    let preCategoryFilterView = null; // saved map position before a category filter was applied
+
+    function getUserLatLng(success, failure) {
+      const rightNow = Date.now();
+      //Going to reuse the location we've stored already if it's less than 5 minutes old
+      if (cachedLatLng && (rightNow - lastLocationTime < 300000)) {
+        success(cachedLatLng);
+        return;
+      }
+      // User did not allow browser/application to use their location
+      if (!navigator.geolocation) {
+        failure({ code: 0 });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+          cachedLatLng = latlng;
+          lastLocationTime = Date.now();
+          success(latlng); // Return the user's location to wherever called this function
+        },
+        (err) => {
+          // Retry once with relaxed settings to see if it resolves any issues
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+              cachedLatLng = latlng;
+              lastLocationTime = Date.now();
+              success(latlng);
+            },
+            failure,
+            {
+              enableHighAccuracy: false,
+              timeout: 15000,
+              maximumAge: 300000
+            }
+          );
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 15000,
+          maximumAge: 300000      // Allowing cached reuse
+        }
+      );
+    }
+
+    function showLoadingScreen() {
+      let screen = document.getElementById('mapLoadingScreen');
+      if (!screen) {
+        // Recreate it if it was removed from the DOM
+        screen = document.createElement('div');
+        screen.id = 'mapLoadingScreen';
+        screen.innerHTML = `
+      <div id="mapLoadingContent">
+        <img id="mapLoadingLogo" src="./imgs/watchdna.png" alt="WatchDNA" />
+        <div id="mapLoadingBar"><div id="mapLoadingBarFill"></div></div>
+      </div>`;
+        document.body.appendChild(screen);
+      }
+      screen.classList.remove('fade-out');
+    }
+
+    //loading screen end
+    function dismissLoadingScreen() {
+      const screen = document.getElementById('mapLoadingScreen');
+      if (!screen) return;
+      screen.classList.add('fade-out');
+      setTimeout(() => screen.remove(), 750);
+    }
+
+    // --- URL parameter helpers (CSV + initial filters) ---
+    const params = new URLSearchParams(window.location.search);
+    const INITIAL = {
+      brand: params.get('brand') || '',
+      type: params.get('type') || '',
+      store: params.get('store') || ''
+    };
+    console.log('[proto] initial filters:', INITIAL);
+
+    function translateUiText(text) {
+      if (window.WatchDnaLocale && typeof window.WatchDnaLocale.translateText === 'function') {
+        return window.WatchDnaLocale.translateText(text);
+      }
+
+      return text;
+    }
+
+    // --- CSV loader (with cache-busting to avoid stale results) ---
+    //function loadCSV(path) {
+    //const url = `${path}?v=${Date.now()}`;
+    //return new Promise((resolve, reject) => {
+    //Papa.parse(url, {
+    //download: true,
+    //header: true,
+    //skipEmptyLines: true,
+    //complete: res => resolve(res.data),
+    //error: err => reject(err)
+    //});
+    //});
+    //}
+
+    function readApiOrigin() {
+      const m = document.querySelector('meta[name="watchdna-api-origin"]');
+      const content = m ? (m.getAttribute('content') || '').trim() : '';
+      // Railway production is the primary backend; the meta tag is only set for local testing.
+      return content || 'https://backend-production-033e.up.railway.app';
+    }
+
+    const BACKEND_BASE_URL = readApiOrigin();
+    const API_LOCATIONS_URL = BACKEND_BASE_URL + '/api/locations';
+
+    async function loadBrandsFromApi() {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      try {
+        const res = await fetch(`${BACKEND_BASE_URL}/api/locations/brands/premium?v=${Date.now()}`, { signal: controller.signal });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return Array.isArray(data.brands) ? data.brands : null;
+      } catch {
+        return null;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    function normalizeApiLocation(loc) {
+      return {
+        'Handle': loc.handle || '',
+        'Name': loc.name || '',
+        'Status': String(loc.status ?? ''),
+        'Address Line 1': loc.addressLine1 || '',
+        'Address Line 2': loc.addressLine2 || '',
+        'Zip/Postal Code': loc.postalCode || '',
+        'City': loc.city || '',
+        'State/Province/Region': loc.stateProvinceRegion || '',
+        'Country': loc.country || '',
+        'Phone': loc.phone || '',
+        'Email': loc.email || '',
+        'Website': loc.website || '',
+        'Image URL': loc.imageUrl || '',
+        'Monday': loc.monday || '',
+        'Tuesday': loc.tuesday || '',
+        'Wednesday': loc.wednesday || '',
+        'Thursday': loc.thursday || '',
+        'Friday': loc.friday || '',
+        'Saturday': loc.saturday || '',
+        'Sunday': loc.sunday || '',
+        'Latitude': loc.latitude ?? '',
+        'Longitude': loc.longitude ?? '',
+        'Page Title': loc.pageTitle || '',
+        'Page Description': loc.pageDescription || '',
+        'Meta Title': loc.metaTitle || '',
+        'Meta Description': loc.metaDescription || '',
+        'Priority': loc.priority || '',
+        'Tags': loc.tags || '',
+        'Brands': loc.brands || '',
+        'Custom Brands': loc.customBrands || '',
+        'Name - FR': loc.nameFr || '',
+        'Page Title - FR': loc.pageTitleFr || '',
+        'Page Description - FR': loc.pageDescriptionFr || '',
+        'Custom Brands - FR': loc.customBrandsFr || '',
+        'Name - ZH-CN': loc.nameZhCn || '',
+        'Page Title - ZH-CN': loc.pageTitleZhCn || '',
+        'Page Description - ZH-CN': loc.pageDescriptionZhCn || '',
+        'Custom Brands - ZH-CN': loc.customBrandsZhCn || '',
+        'Name - ES': loc.nameEs || '',
+        'Page Title - ES': loc.pageTitleEs || '',
+        'Page Description - ES': loc.pageDescriptionEs || '',
+        'Custom Brands - ES': loc.customBrandsEs || '',
+        'Custom Button title 1': loc.customButton1Title || '',
+        'Custom Button URL 1': loc.customButton1Url || '',
+        'Custom Button title 2': loc.customButton2Title || '',
+        'Custom Button URL 2': loc.customButton2Url || '',
+        '_isVerifiedDealer': !!loc.isVerifiedDealer,
+        '_isBoutique': !!loc.isBoutique,
+        '_isServiceCenter': !!loc.isServiceCenter,
+        '_isServiceCenterDb': !!loc.isServiceCenter,
+        '_isPremium': !!loc.isPremium,
+        '_brandFilterMode': loc.brandFilterMode === 'verified_brand' ? 'verified_brand' : 'brand',
+        '_premiumFilterBrandsCsv': Array.isArray(loc.premiumFilterBrands) ? loc.premiumFilterBrands.join(', ') : '',
+        // English translations (for non-Latin stores)
+        'Name EN': loc.nameEn || '',
+        'Address Line 1 EN': loc.addressLine1En || '',
+        'City EN': loc.cityEn || '',
+      };
+    }
+
+    async function loadLocationsFromApi() {
+      // Fallback: load everything (used when geolocation is unavailable/denied)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      try {
+        const res = await fetch(`${API_LOCATIONS_URL}?limit=25000&v=${Date.now()}`, { signal: controller.signal });
+        if (!res.ok) {
+          throw new Error(`API request failed with status ${res.status}`);
+        }
+        const payload = await res.json();
+        const locations = Array.isArray(payload?.data) ? payload.data : [];
+        return locations.map(normalizeApiLocation);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    async function loadLocationsNearby(lat, lng, radiusMiles) {
+      // Primary startup path: only load stores near the user
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      try {
+        const url = `${BACKEND_BASE_URL}/api/locations/nearby?lat=${lat}&lng=${lng}&radius=${radiusMiles}&v=${Date.now()}`;
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) {
+          throw new Error(`Nearby API request failed with status ${res.status}`);
+        }
+        const payload = await res.json();
+        const locations = Array.isArray(payload?.data) ? payload.data : [];
+        return locations.map(normalizeApiLocation);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    async function loadLocationsByBrand(brandName) {
+      // Called when user selects a brand filter that yields zero visible markers
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      try {
+        const encoded = encodeURIComponent(brandName);
+        const url = `${API_LOCATIONS_URL}?brand=${encoded}&isPremium=true&limit=5000&v=${Date.now()}`;
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) {
+          throw new Error(`Brand API request failed with status ${res.status}`);
+        }
+        const payload = await res.json();
+        const locations = Array.isArray(payload?.data) ? payload.data : [];
+        return locations.map(normalizeApiLocation);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    // --- small hamburger toggle (left) ---
+    (function () {
+      const btn = document.getElementById('hamburger');
+      const panel = document.getElementById('filtersPanel');
+      const storeListContainer = document.getElementById('storeListContainer');
+      const sidebar = document.getElementById('sidebar');
+      const headerText = document.querySelector('#top h2'); // For changing the bold header text at top of sidebar
+      const paragraph = document.querySelector('#top p'); // For changing the paragraph in the sidebar under the header
+
+      if (!btn || !panel || !storeListContainer || !sidebar) {
+        console.warn('Toggle init aborted, missing elements:', { btn, panel, storeListContainer });
+        return;
+      }
+
+      const defaultHeaderText = headerText ? headerText.textContent : "";
+      const defaultParagraph = paragraph ? paragraph.textContent : "";
+
+      function setStoreListHidden(hidden) {
+        // keep a class for CSS transitions or style hooks
+        if (hidden) {
+          storeListContainer.classList.add('hidden');
+          //set inline style to be extra sure
+          storeListContainer.style.display = 'none';
+        }
+        else {
+          storeListContainer.classList.remove('hidden');
+          storeListContainer.style.display = '';
+        }
+        console.log('[storeList] set hidden =', hidden, 'classList:', storeListContainer.className);
+      }
+
+      btn.addEventListener('click', (e) => {
+        const wasHidden = panel.hasAttribute('hidden');
+
+        if (wasHidden) {
+          panel.removeAttribute('hidden');
+          btn.setAttribute('aria-expanded', 'true');
+          setStoreListHidden(true);
+          clearFiltersBtn.style.display = '';
+
+          sidebar.classList.add('filters-open');
+          if (headerText) {
+            headerText.textContent = "Find Jewellers In Your Area";
+          }
+          if (paragraph) {
+            paragraph.textContent = "Explore all authorized dealers, or refine your search to AD Verified locations only."
+          }
+        }
+        else {
+          panel.setAttribute('hidden', '');
+          btn.setAttribute('aria-expanded', 'false');
+          setStoreListHidden(false);
+          clearFiltersBtn.style.display = 'none';  // ← hide it when closing
+
+          sidebar.classList.remove('filters-open');
+          if (headerText) {
+            headerText.textContent = defaultHeaderText;
+          }
+          if (paragraph) {
+            paragraph.textContent = defaultParagraph;
+          }
+        }
+        e.stopPropagation();
+      });
+
+      // Swallow clicks that originate inside the panel so the document-level
+      // outside-click handler below doesn't see them. Without this, a click on
+      // a category/brand checkbox could falsely register as "outside" — the
+      // change handler runs applyFilter() synchronously, which wipes and
+      // rebuilds #brandCheckboxes, detaching the original click target. By
+      // the time the click event bubbles to document, panel.contains(target)
+      // is false because the target is no longer in the DOM.
+      panel.addEventListener('click', (e) => { e.stopPropagation(); });
+
+      document.addEventListener('click', (ev) => {
+        if (!panel.hasAttribute('hidden') && !panel.contains(ev.target) && ev.target !== btn) {
+          panel.setAttribute('hidden', '');
+          btn.setAttribute('aria-expanded', 'false');
+          setStoreListHidden(false);
+          clearFiltersBtn.style.display = 'none';
+
+          sidebar.classList.remove('filters-open');
+          if (headerText) {
+            headerText.textContent = defaultHeaderText;
+          }
+          if (paragraph) {
+            paragraph.textContent = defaultParagraph;
+          }
+
+          console.log('[document] closed filters by click outside');
+        }
+      });
+    })();
+
+    // --- Clustering & filtering state ---
+    const clusterGroup = L.markerClusterGroup({
+      // Spiderfy at max zoom so stores at identical coordinates (two boutiques in one
+      // building) can be fanned out and clicked — otherwise they stay a cluster bubble
+      // forever and never appear as individual pins.
+      spiderfyOnMaxZoom: true,
+      zoomToBoundsOnClick: true,
+      showCoverageOnHover: false,
+      // Chunked addLayers so a global cluster rebuild (thousands of markers
+      // at low zoom) doesn't block the main thread. chunkInterval is how
+      // long the plugin works before yielding; chunkDelay is the gap before
+      // the next chunk. Tuned for smoothness over raw speed.
+      chunkedLoading: true,
+      chunkInterval: 200,
+      chunkDelay: 50,
+      // Signals when a chunked addLayers pass has processed every marker — drives the
+      // rebuild scheduler below so clearLayers never runs mid-flight.
+      chunkProgress: (processed, total) => _onClusterChunkProgress(processed, total),
+      iconCreateFunction: function (cluster) {
+        const count = cluster.getChildCount();
+        let size = 30;
+
+        if (count < 10) {
+          size = 30;
+        } else if (count < 100) {
+          size = 40;
+        } else {
+          size = 50;
+        }
+        return L.divIcon({
+          html: `
+          <div class="cluster-outer">
+            <div class="cluster-inner">${count}</div>
+          </div>`,
+          className: 'custom-cluster',
+          iconSize: L.point(size, size)
+        });
+      }
+    });
+    // --- Cluster rebuild scheduler ---
+    // With chunkedLoading, addLayers keeps processing queued chunks via setTimeout even after
+    // clearLayers() runs; clearing mid-flight leaves the per-zoom cluster grids referencing a
+    // mix of old and new state, so pins vanish at some zoom levels and reappear at others
+    // while the sidebar still lists the stores. Serialize instead: one clear+add cycle at a
+    // time; while one is in flight only the latest requested marker set is remembered and
+    // applied when the current cycle completes (signalled via chunkProgress above).
+    let _clusterAddInFlight = false;
+    let _pendingClusterMarkers = null;
+    let _currentClusterMarkers = []; // intended post-filter marker set — source of truth for list/counts
+
+    function setClusterMarkers(markers) {
+      _currentClusterMarkers = markers;
+      if (_clusterAddInFlight) {
+        _pendingClusterMarkers = markers;
+        return;
+      }
+      clusterGroup.clearLayers();
+      if (!markers.length) return;
+      if (!map.hasLayer(clusterGroup)) {
+        // Off-map (before finishMapSetup): the plugin just queues synchronously — no chunking.
+        clusterGroup.addLayers(markers);
+        return;
+      }
+      _clusterAddInFlight = true;
+      clusterGroup.addLayers(markers);
+    }
+
+    function _onClusterChunkProgress(processed, total) {
+      if (processed !== total) return;
+      // Defer past the plugin's own completion work (bounds + icon refresh) before
+      // starting a queued rebuild or refreshing readers of the cluster state.
+      setTimeout(() => {
+        if (!_clusterAddInFlight) return;
+        _clusterAddInFlight = false;
+        if (_pendingClusterMarkers) {
+          const next = _pendingClusterMarkers;
+          _pendingClusterMarkers = null;
+          setClusterMarkers(next);
+        } else {
+          // Marker set fully drawn — sync the viewport list with the final cluster state.
+          updateSidebarForViewport();
+        }
+      }, 0);
+    }
+
+    const bounds = L.latLngBounds();
+    let allRows = [];
+    let allMarkers = [];
+    // Keep track of stores the user has explicitly checked (lowercased names)
+    let userCheckedStores = new Set();
+    let areaFilterEnabled = false;
+    let areaFilterBounds = null;
+    let lastSearchAreaBounds = null;
+    let userAccuracyCircle = null;
+    let focusedMarker = null;
+    let preDetailMapView = null; // saved map position before a store pin was clicked
+
+    // Tracks which areas have already been fetched to avoid redundant API calls
+    const _loadedAreaCache = [];
+    const LOADED_AREA_OVERLAP_THRESHOLD = 0.6; // 60% overlap = skip fetch
+
+    function isAreaAlreadyLoaded(lat, lng, radiusMiles) {
+      // Convert miles to degrees (rough approximation)
+      const radiusDeg = radiusMiles / 69;
+      return _loadedAreaCache.some(cached => {
+        const dist = Math.sqrt(
+          Math.pow(cached.lat - lat, 2) + Math.pow(cached.lng - lng, 2)
+        );
+        // If the new center is within the cached radius, it's already covered
+        return dist < (cached.radiusDeg * LOADED_AREA_OVERLAP_THRESHOLD);
+      });
+    }
+
+    function markAreaAsLoaded(lat, lng, radiusMiles) {
+      _loadedAreaCache.push({ lat, lng, radiusDeg: radiusMiles / 69 });
+    }
+
+    // Tracks which location keys are already in allRows to avoid duplicates across incremental loads
+    const _ingestedKeys = new Set();
+
+    function _ingestSingleRow(row) {
+      const key = [
+        String(row['Name'] || '').trim().toLowerCase(),
+        String(row['Address Line 1'] || '').trim().toLowerCase(),
+        String(row['City'] || '').trim().toLowerCase(),
+        String(row['Country'] || '').trim().toLowerCase()
+      ].join('|');
+
+      if (_ingestedKeys.has(key)) return;
+      _ingestedKeys.add(key);
+
+      const lat = parseFloat(String(row.Latitude).trim());
+      const lon = parseFloat(String(row.Longitude).trim());
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+      if (isServiceCenterRow(row)) {
+        row._type = 'services-center';
+      } else {
+        row._type = 'watch-brands';
+      }
+      row._isPremium = !!row._isPremium;
+      // Use the raw DB flag for filtering so that admin-marked service centers pass the
+      // filter even when they are also premium (isPremium=true). isServiceCenterRow() is
+      // only used for marker icon selection above and should not override the filter flag.
+      row._isServiceCenter = !!row['_isServiceCenterDb'];
+      row._isPremiumBrandOnly = isPremiumBrandOnlyRow(row);
+
+      const marker = L.marker([lat, lon], { icon: getMarkerIconForRow(row) });
+      marker.on('click', () => {
+        if (focusedMarker && focusedMarker !== marker) {
+          focusedMarker.setZIndexOffset(0);
+        }
+        focusedMarker = marker;
+        marker.setZIndexOffset(1000);
+        openStoreDetail(row, marker);
+      });
+      allRows.push(row);
+      allMarkers.push({ row, marker });
+      bounds.extend([lat, lon]);
+    }
+
+    function ingestRows(rows) {
+      // Synchronous batch ingest — use for small/nearby loads.
+      // Safe to call multiple times — already-seen keys are skipped.
+      rows.forEach(_ingestSingleRow);
+    }
+
+    // Async chunked ingest for large full-dataset loads (up to 25k rows).
+    // onChunk: called after each chunk for progressive rendering (pass null to skip).
+    // silentChunkSize: larger chunks in silent/background mode to reduce overhead
+    // since we're not re-rendering between chunks anyway.
+    async function ingestRowsChunked(rows, onChunk, { silentChunkSize = false } = {}) {
+      const CHUNK_SIZE = silentChunkSize ? 2000 : 500;
+      const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
+      for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        rows.slice(i, i + CHUNK_SIZE).forEach(_ingestSingleRow);
+        if (typeof onChunk === 'function') onChunk();
+        await yieldToMain();
+      }
+    }
+
+    function createStoreIcon(iconUrl) {
+      return L.icon({
+        iconUrl,
+        iconSize: [34, 48],
+        iconAnchor: [17, 48],
+        popupAnchor: [0, -42]
+      });
+    }
+
+    const markerIcons = {
+      retailer: {
+        nonPremium: createStoreIcon('./imgs/pins_np2.png'),
+        premiumBrandOnly: createStoreIcon('./imgs/pins_pb.png'),
+        premium: createStoreIcon('./imgs/pins_ap.png')
+      },
+      serviceCenter: {
+        nonPremium: createStoreIcon('./imgs/pins_sc_np.png'),
+        premiumBrandOnly: createStoreIcon('./imgs/pins_sc_pb.png'),
+        premium: createStoreIcon('./imgs/pins_sc_ap.png')
+      }
+    };
+
+    function buildPopup(row) {
+      const addr = [row['Address Line 1'], row['City'], row['State/Province/Region'], row['Country']]
+        .filter(Boolean).join(', ');
+      const phone = row['Phone'] ? `<br>${row['Phone']}` : '';
+
+      const displayBrandsHTML = getDisplayBrandsHTMLForRow(row);
+      const brandsDisplay = displayBrandsHTML
+        ? `<br><br><strong>Brands:</strong> ${displayBrandsHTML}`
+        : '';
+      return `<div class="popup"><b>${row['Name'] || ''}</b><br>${addr}${phone}${brandsDisplay}</div>`;
+    }
+
+    function buildFullAddress(row) {
+      const line1 = (row['Address Line 1'] || '').trim();
+      const line2 = (row['Address Line 2'] || '').trim();
+      const city = (row['City'] || '').trim();
+      const state = (row['State/Province/Region'] || '').trim();
+      const zip = (row['Zip/Postal Code'] || '').trim();
+      const country = (row['Country'] || '').trim();
+
+      const parts = [];
+      if (line1) parts.push(line1);
+      if (line2) parts.push(line2);
+
+      const cityLine = [city, state, zip].filter(Boolean).join(', ');
+      if (cityLine) parts.push(cityLine);
+      if (country) parts.push(country);
+
+      return parts.join('\n');
+    }
+
+    function getApprovedBrandsList(row) {
+      return brandsFromCustomBrandsField(row['Custom Brands']);
+    }
+
+    // Brands that should show a verified indicator (demo list)
+    const VERIFIED_BRANDS = new Set([
+      "OMEGA"
+    ]);
+
+    /** Match backend `brand-display-name.ts` for map filters + row brand tokens. */
+    const BRAND_DISPLAY_SUFFIXES = ['_stores', '_retailers', '_dealers', '_watches'];
+    const BRAND_DISPLAY_OVERRIDES = {
+      'ALANGE SOEHNE': 'A. LANGE & SÖHNE',
+      'BAUME ET MERCIER': 'BAUME & MERCIER',
+      'BELL ROSS': 'BELL & ROSS',
+      'FREDERIQUE CONSTANT': 'FRÉDÉRIQUE CONSTANT',
+      'FREDERIQUE-CONSTANT': 'FRÉDÉRIQUE CONSTANT',
+      'GLASHUTTE': 'GLASHÜTTE',
+      'GLASHUTTE ORIGINAL': 'GLASHÜTTE ORIGINAL',
+      'MUHLE GLASHUTTE': 'MUHLE GLASHÜTTE',
+      'NOMOS GLASHUTTE': 'NOMOS GLASHÜTTE',
+      'UNION GLASHUTTE': 'UNION GLASHÜTTE',
+      'TOMMY HILFINGER': 'TOMMY HILFIGER',
+      'TAGHEUER': 'TAG HEUER',
+      'TAG-HEUER': 'TAG HEUER',
+      'BAUME MERCIER': 'BAUME & MERCIER',
+      'CITIZEN WATCH': 'CITIZEN',
+      'BALL WATCH': 'BALL',
+      'BALL WATCHES': 'BALL',
+      'UBOAT': 'U-BOAT',
+      'GRAHAM OF LONDON': 'GRAHAM',
+    };
+    function stripBrandHtml(s) {
+      let t = String(s || '').replace(/<[^>]+>/g, '');
+      t = t.replace(/<[^>]*$/gi, '');
+      return t;
+    }
+    function stripLeadingBrandMarkupJunk(s) {
+      return String(s || '')
+        .replace(/^["']+\s*>\s*/g, '')
+        .replace(/^>\s*/g, '')
+        .trim();
+    }
+    function looksLikeHtmlOrUrlGarbage(upper) {
+      if (!upper) return true;
+      if (/\bHREF\s*=/.test(upper)) return true;
+      if (/HTTPS?:\/\//.test(upper)) return true;
+      if (/[<>]/.test(upper)) return true;
+      return false;
+    }
+    function looksLikeBrandAddressLine(upper) {
+      if (!/^\d{1,5}\s+/.test(upper)) return false;
+      return /\b(RUE|RUA|VIA|VIALE|CORSO|PIAZZA|C\/|STREET|ST\.|AVENUE|ROAD|BLVD|BOULEVARD|LANE|DRIVE|WAY|COURT|CARRER)\b/i.test(upper);
+    }
+    function normalizeBrandToken(raw) {
+      let name = stripLeadingBrandMarkupJunk(stripBrandHtml(raw)).trim();
+      if (!name) return '';
+      let low = name.toLowerCase();
+      for (const suf of BRAND_DISPLAY_SUFFIXES) {
+        if (low.endsWith(suf)) {
+          name = name.slice(0, -suf.length);
+          break;
+        }
+      }
+      name = name.replace(/_/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+      if (!name || !/[A-Z0-9]/i.test(name)) return '';
+      if (looksLikeBrandAddressLine(name)) return '';
+      if (looksLikeHtmlOrUrlGarbage(name)) return '';
+      return BRAND_DISPLAY_OVERRIDES[name] ?? name;
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Returns array of visible brand names for a row
+    function getVisibleBrandsList(row) {
+      const fullBrands = extractBrandsText(row);
+      const list = fullBrands
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (row._isPremium) return list;
+
+      // Unverified: only show brands that approved this location
+      return list.filter(b => isLocationApprovedForBrand(row, b));
+    }
+
+    function getPremiumFilterBrandsList(row) {
+      return String(row['_premiumFilterBrandsCsv'] || '')
+        .split(',')
+        .map((s) => normalizeBrandToken(s))
+        .filter(Boolean);
+    }
+
+    /** Tokens used when applying the sidebar “Filter by Brand” (per-store mode from admin). */
+    function getBrandTokensForFilter(row) {
+      const isQualifiedStore = !!(row._isVerifiedDealer || row._isBoutique || row._isServiceCenter);
+      if (isQualifiedStore) {
+        // Use admin-curated premium filter brands when set; fall back to the store's
+        // regular brands so boutiques and verified dealers participate in brand filtering
+        // even when premiumFilterBrands hasn't been explicitly configured.
+        const premiumBrands = getPremiumFilterBrandsList(row);
+        if (premiumBrands.length > 0) return premiumBrands;
+      }
+      return extractBrandsText(row)
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    // HTML string used for UI display (adds verified checkmark)
+    function getDisplayBrandsHTMLForRow(row) {
+      const list = getVisibleBrandsList(row);
+      const brandLinks = extractBrandLinksMap(row);
+
+      if (!list.length) return "";
+
+      return list.map(b => {
+        const clean = b.trim();
+        const key = normalizeBrandToken(clean).toUpperCase();
+        const isVerifiedBrand = isLocationApprovedForBrand(row, clean);
+        const check = isVerifiedBrand ? ` <span class="verified-check" title="Verified brand">✓</span>` : "";
+        const href = getWatchDnaBrandHref(clean, brandLinks.get(key));
+
+        if (isValidBrandHref(href)) {
+          return `<a class="brand-pill brand-pill--link" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(clean)}${check}</a>`;
+        }
+
+        return `<span class="brand-pill">${escapeHtml(clean)}${check}</span>`;
+      }).join(" ");
+    }
+
+    function normalizeKey(val) {
+      return String(val || "").trim().toLowerCase();
+    }
+
+    function isServiceCenterRow(row) {
+      // Rule: a location is treated as a service center for marker/filter purposes
+      // ONLY if it is strictly a service center — not if it is also a retailer.
+      // A premium store or a store with brand data is a retailer first; the service
+      // center marker should not override that even if it offers repairs.
+
+      // 1. If the DB flag is explicitly false, it's not a service center.
+      if (row['_isServiceCenterDb'] === false) return false;
+
+      // 2. If it's a premium retailer, keep the retailer marker regardless.
+      if (row['_isPremium']) return false;
+
+      // 3. If it has brand data, it's functioning as a retailer — don't override.
+      const hasBrands = !!(row['Brands'] || '').trim() || !!(row['Custom Brands'] || '').trim();
+      if (hasBrands) return false;
+
+      // 4. Trust the DB flag if explicitly set to true.
+      if (row['_isServiceCenterDb'] === true) return true;
+
+      // 5. Fallback: text heuristic for stores where the DB flag isn't available yet.
+      const text = [
+        row['Name'] || '',
+        row['Page Title'] || '',
+        row['Tags'] || ''
+      ].join(' ').toLowerCase();
+
+      return /service center|watch service|watch repair|repair specialists/.test(text);
+    }
+
+    function isPremiumBrandOnlyRow(row) {
+      return !row._isPremium && getVisibleBrandsList(row).length > 0;
+    }
+
+    function getMarkerCategory(row) {
+      const serviceCenter = row._isServiceCenter || isServiceCenterRow(row);
+      const storeKind = serviceCenter ? 'serviceCenter' : 'retailer';
+
+      let tier = 'nonPremium';
+      if (row._isPremium) {
+        tier = 'premium';
+      } else if (isPremiumBrandOnlyRow(row)) {
+        tier = 'premiumBrandOnly';
+      }
+
+      return { storeKind, tier };
+    }
+
+    function getMarkerIconForRow(row) {
+      const { storeKind, tier } = getMarkerCategory(row);
+      return markerIcons[storeKind][tier];
+    }
+
+    function isLocationApprovedForBrand(row, brandName) {
+      const approvedBrands = getApprovedBrandsList(row);
+      const brandKey = normalizeBrandToken(brandName).toUpperCase();
+      if (!brandKey) return false;
+
+      return approvedBrands.some((b) => normalizeBrandToken(b).toUpperCase() === brandKey);
+    }
+
+    /** Parse `Custom Brands` HTML or plain comma-separated text into brand names. */
+    function brandsFromCustomBrandsField(html) {
+      const s = String(html || '').trim();
+      if (!s) return [];
+      const temp = document.createElement('div');
+      temp.innerHTML = s;
+      const fromAnchors = Array.from(temp.querySelectorAll('a'))
+        .map(a => (a.textContent || '').trim())
+        .filter(Boolean);
+      if (fromAnchors.length) return fromAnchors;
+      return s.split(',').map(x => x.trim()).filter(Boolean);
+    }
+
+    /**
+     * All brand names tied to a row (CSV `Brands` plus `Custom Brands`), deduped case-insensitively.
+     * Used for filters, toggles, and detail — matches backend `getBrands()` intent.
+     */
+    function extractBrandsText(row) {
+      const fromCsv = String(row['Brands'] || '')
+        .split(',')
+        .map(x => x.trim())
+        .filter(Boolean);
+      const fromCustom = brandsFromCustomBrandsField(row['Custom Brands']);
+      const seen = new Set();
+      const merged = [];
+      const add = (name) => {
+        const display = normalizeBrandToken(name);
+        if (!display) return;
+        const key = display.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(display);
+        }
+      };
+      fromCsv.forEach(add);
+      fromCustom.forEach(add);
+      return merged.join(', ');
+    }
+
+    const WATCHDNA_BRAND_BASE_URL = 'https://watchdna.com/blogs/history/';
+
+    const WATCHDNA_BRAND_PAGE_OVERRIDES = {
+      '(A)LT|SYM': 'alt-sym',
+      'ALT SYM': 'alt-sym',
+
+      'A. LANGE & SÖHNE': 'a-lange-sohne',
+      'A LANGE & SÖHNE': 'a-lange-sohne',
+      'A LANGE SOHNE': 'a-lange-sohne',
+      'ALANGE SOEHNE': 'a-lange-sohne',
+
+      'ALEXANDRA SCHMITZ ART DE L\'ANGLAGE': 'alexandra-schmitz-art-de-langlage',
+      'ARNOLD & SON': 'arnold-son',
+      'ARNOLD SON': 'arnold-son',
+
+      'BAUME & MERCIER': 'baume-mercier',
+      'BAUME ET MERCIER': 'baume-mercier',
+
+      'BELL & ROSS': 'bell-ross',
+      'BELL ROSS': 'bell-ross',
+
+      'B.R.M CHRONOGRAPHES': 'brm-chronographes',
+      'BRM CHRONOGRAPHES': 'brm-chronographes',
+
+      'BREW WATCH CO': 'brew-watch-co',
+      'CARL F. BUCHERER': 'carl-f-bucherer',
+      'CARL F BUCHERER': 'carl-f-bucherer',
+
+      'CHAMPS-ÉLYSÉES': 'champs-elysees',
+      'CHAMPS ELYSEES': 'champs-elysees',
+
+      'CHRISTIAAN VAN DER KLAAUW': 'christiaan-van-der-klaauw',
+      'CIGA DESIGN': 'ciga-design',
+      'CORE TIMEPIECES': 'core-timepieces',
+
+      'CYRUS GENÈVE': 'cyrus-geneve',
+      'CYRUS GENEVE': 'cyrus-geneve',
+
+      'CZAPEK & CIE': 'czapek-cie',
+      'CZAPEK CIE': 'czapek-cie',
+
+      'D1 MILANO': 'd1-milano',
+      'DANIEL WELLINGTON': 'daniel-wellington',
+      'DAVID VAN HEIM': 'david-van-heim',
+      'DELHI WATCH COMPANY': 'delhi-watch-company',
+
+      'DE RIJKE & CO': 'de-rijke-co',
+      'DE RIJKE CO': 'de-rijke-co',
+
+      'DIY WATCH CLUB': 'diy-watch-club',
+      'DUCKWORTH PRESTEX': 'duckworth-prestex',
+
+      'EBERHARD & CO.': 'eberhard-co',
+      'EBERHARD & CO': 'eberhard-co',
+      'EBERHARD CO': 'eberhard-co',
+      'Eberhard & Co.': 'eberhard-co',
+      'Eberhard & Co': 'eberhard-co',
+
+      'ECHO NEUTRA': 'echo-neutra',
+      'ELLIOT BROWN': 'elliot-brown',
+      'EMPORIO ARMANI': 'emporio-armani',
+
+      'FARR + SWIT': 'farr-swit',
+      'FARR SWIT': 'farr-swit',
+
+      'FAVRE-BULLÉ': 'favre-bulle',
+      'FAVRE BULLE': 'favre-bulle',
+      'FAVRE-LEUBA': 'favre-leuba',
+      'FEARS BRISTOL': 'fears-bristol',
+      'FELIPE PIKULLIK': 'felipe-pikullik',
+      'FERDINAND BERTHOUD': 'ferdinand-berthoud',
+
+      'FERRO & COMPANY': 'ferro-company',
+      'FERRO COMPANY': 'ferro-company',
+
+      'FLIK FLAK': 'flik-flak',
+      'FOB PARIS': 'fob-paris',
+      'FRANCK MULLER': 'franck-muller',
+
+      'FRÉDÉRIQUE CONSTANT': 'frederique-constant',
+      'FREDERIQUE CONSTANT': 'frederique-constant',
+
+      'FURLAN MARRI': 'furlan-marri',
+
+      'GAMBRELL & RENARD': 'gambrell-renard',
+      'GAMBRELL RENARD': 'gambrell-renard',
+
+      'GEO SHOP': 'geo-shop',
+      'GERALD CHARLES': 'gerald-charles',
+      'GERALD GENTA': 'gerald-genta',
+      'GEYLANG WATCH CO': 'geylang-watch-co',
+      'GIRARD PERREGAUX': 'girard-perregaux',
+
+      'GLASHÜTTE ORIGINAL': 'glashutte-original',
+      'GLASHUTTE ORIGINAL': 'glashutte-original',
+
+      'GLOCK WATCHES': 'glock-watches',
+      'GOOD+EVIL': 'good-evil',
+      'GOOD EVIL': 'good-evil',
+      'GRAND SEIKO': 'grand-seiko',
+      'GRUPPO GAMMA': 'gruppo-gamma',
+
+      'GUSTAVE & CIE': 'gustave-cie',
+      'GUSTAVE CIE': 'gustave-cie',
+
+      'H. MOSER & CIE.': 'h-moser-cie',
+      'H MOSER & CIE': 'h-moser-cie',
+      'H MOSER CIE': 'h-moser-cie',
+
+      'HARRY WINSTON': 'harry-winston',
+      'HAVAN TUVALI': 'havaan-tuvali',
+      'HAVAAN TUVALI': 'havaan-tuvali',
+      'HERON WATCHES': 'heron-watches',
+      'HZ WATCHES': 'hz-watches',
+
+      'ID GENÈVE': 'id-geneve',
+      'ID GENEVE': 'id-geneve',
+      'ICE WATCH': 'ice-watch',
+      'IRON ANNIE': 'iron-annie',
+      'IWC SCHAFFHAUSEN': 'iwc-schaffhausen',
+
+      'JACK MASON': 'jack-mason',
+      'JACOB & CO': 'jacob-co',
+      'JACOB CO': 'jacob-co',
+
+      'JAEGER-LECOULTRE': 'jaeger-lecoultre',
+      'JAEGER LECOULTRE': 'jaeger-lecoultre',
+
+      'JACQUES BIANCHI': 'jacques-bianchi',
+      'JAIPUR WATCH COMPANY': 'jaipur-watch-company',
+      'JAKOB EITAN': 'jakob-eitan',
+      'JAQUET DROZ': 'jaquet-droz',
+      'JOSÉ CERMEÑO': 'jose-cermeno',
+      'JOSE CERMENO': 'jose-cermeno',
+
+      'KATE SPADE': 'kate-spade',
+      'KROSS STUDIO': 'kross-studio',
+
+      'LAURENT FERRIER': 'laurent-ferrier',
+      'LE FORBAN SÉCURITÉ MER': 'le-forban-securite-mer',
+      'LE FORBAN SECURITE MER': 'le-forban-securite-mer',
+      'LEE COOPER': 'lee-cooper',
+
+      'L\'EPÉE 1839': 'lepee-1839',
+      'L EPEE 1839': 'lepee-1839',
+
+      'LOCKE & KING': 'locke-king',
+      'LOCKE KING': 'locke-king',
+
+      'LONG ISLAND WATCH-COMPANY': 'long-island-watch-company',
+      'LONG ISLAND WATCH COMPANY': 'long-island-watch-company',
+
+      'LOUIS ERARD': 'louis-erard',
+      'LOUIS MOINET': 'louis-moinet',
+      'LOUIS VUITTON': 'louis-vuitton',
+      'LUCKY HARVEY': 'lucky-harvey',
+
+      'M+WATCH': 'm-watch',
+      'M WATCH': 'm-watch',
+
+      'MAISON ALCÉE': 'maison-alcee',
+      'MAISON ALCEE': 'maison-alcee',
+      'MAISON BOANTON': 'maison-boanton',
+      'MAISON MONTIGNAC': 'maison-montignac',
+      'MARCH LAB': 'march-lab',
+      'MATHEY-TISSOT': 'mathey-tissot',
+      'MAURICE DE MAURIAC': 'maurice-de-mauriac',
+      'MAURICE LACROIX': 'maurice-lacroix',
+
+      'MB&F': 'mb-f',
+      'MBF': 'mb-f',
+
+      'MEZEI WATCH COMPANY': 'mezei-watch-company',
+      'MICHAEL KORS': 'michael-kors',
+      'MONTRES ETOILE': 'montres-etoile',
+
+      'MÜHLE GLASHÜTTE': 'muhle-glashutte',
+      'MUHLE GLASHUTTE': 'muhle-glashutte',
+
+      'NALLA NERAM': 'nalla-neram',
+      'NIVADA GRENCHEN': 'nivada-grenchen',
+
+      'NOMOS GLASHÜTTE': 'nomos-glashutte',
+      'NOMOS GLASHUTTE': 'nomos-glashutte',
+
+      'NORTHERN STAR WATCH': 'northern-star-watch',
+      'NUBEO WATCHES': 'nubeo-watches',
+
+      'OCEAN CRAWLER': 'ocean-crawler',
+      'OISA 1937': 'oisa-1937',
+      'OLIVIA BURTON': 'olivia-burton',
+      'OLLECH WAJS': 'ollech-wajs',
+
+      'PARMIGIANI FLEURIER': 'parmigiani-fleurier',
+      'PATEK PHILIPPE': 'patek-philippe',
+      'PAUL HEWITT': 'paul-hewitt',
+      'PHILIPP PLEIN': 'philipp-plein',
+      'PIERRE CARDIN': 'pierre-cardin',
+      'PIERRE KUNZ': 'pierre-kunz',
+      'PIERRE LANNIER': 'pierre-lannier',
+
+      'PILO & CO GENÈVE': 'pilo-co-geneve',
+      'PILO & CO GENEVE': 'pilo-co-geneve',
+      'PILO CO GENEVE': 'pilo-co-geneve',
+
+      'PLEIN SPORT': 'plein-sport',
+      'POIRAY PARIS': 'poiray-paris',
+      'PORSCHE DESIGN': 'porsche-design',
+
+      'QIAN GUOBIAO': 'qian-guobiao',
+      'RALF TECH': 'ralf-tech',
+      'RAYMOND WEIL': 'raymond-weil',
+      'RESERVOIR WATCH': 'reservoir-watch',
+      'RICHARD MILLE': 'richard-mille',
+      'RMS ZEITMEISTER': 'rms-zeitmeister',
+      'ROGER DUBUIS': 'roger-dubuis',
+      'RUDIS SYLVA': 'rudis-sylva',
+
+      'SAINT-HONORÉ PARIS': 'saint-honore-paris',
+      'SAINT HONORE PARIS': 'saint-honore-paris',
+
+      'SCHAEFER & COMPANIONS': 'schaefer-companions',
+      'SCHAEFER COMPANIONS': 'schaefer-companions',
+
+      'SEAGULL 1963': 'seagull-1963',
+      'SECOND HOUR': 'second-hour',
+      'SEMPER ADHUC': 'semper-adhuc',
+      'SICIS JEWELS': 'sicis-jewels',
+      'SINCLAIR HARDING': 'sinclair-harding',
+      'SINN SPEZIALUHREN': 'sinn-spezialuhren',
+      'SOLAR AQUA': 'solar-aqua',
+      'SPACE ONE': 'space-one',
+      'SPEAKE MARIN': 'speake-marin',
+      'SPRINGER FERSEN': 'springer-fersen',
+      'STIL TIMEPIECES': 'stil-timepieces',
+      'STRATON WATCH CO.': 'straton-watch-co',
+      'STRATON WATCH CO': 'straton-watch-co',
+      'STUDIO UNDERD0G': 'studio-underd0g',
+      'SWISS MILITARY HANOWA': 'swiss-military-hanowa',
+      'SWISS WATCH': 'swiss-watch',
+
+      'TAG HEUER': 'tag-heuer',
+      'TAGHEUER': 'tag-heuer',
+
+      'TED BAKER': 'ted-baker',
+
+      'THACKER & MERALI': 'thacker-merali',
+      'THACKER MERALI': 'thacker-merali',
+
+      'THOMAS SABO': 'thomas-sabo',
+
+      'TIFFANY & CO.': 'tiffany-co',
+      'TIFFANY & CO': 'tiffany-co',
+      'TIFFANY CO': 'tiffany-co',
+
+      'TOMMY HILFIGER': 'tommy-hilfiger',
+      'TOMMY HILFINGER': 'tommy-hilfiger',
+
+      'TORY BURCH': 'tory-burch',
+      'TSAR BOMBA': 'tsar-bomba',
+
+      'U-BOAT': 'u-boat',
+      'UBOAT': 'u-boat',
+
+      'ULYSSE NARDIN': 'ulysse-nardin',
+
+      'UNION GLASHÜTTE': 'union-glashutte',
+      'UNION GLASHUTTE': 'union-glashutte',
+
+      'VACHERON CONSTANTIN': 'vacheron-constantin',
+      'VAN CLEEF & ARPELS': 'van-cleef-arpels',
+      'VAN CLEEF ARPELS': 'van-cleef-arpels',
+      'VON DOREN': 'von-doren',
+      'VOSTOK EUROPE': 'vostok-europe',
+
+      'WHITE STAR WATCH': 'white-star-watch',
+      'WILK WATCHWORKS': 'wilk-watchworks',
+
+      '5280 WATCH COMPANY': '5280-watch-company'
+    };
+
+    function getBrandOverrideSlug(brandName) {
+      const original = String(brandName || '').trim();
+      if (!original) return '';
+
+      if (WATCHDNA_BRAND_PAGE_OVERRIDES[original]) {
+        return WATCHDNA_BRAND_PAGE_OVERRIDES[original];
+      }
+
+      const normalized = normalizeBrandToken(original).toUpperCase();
+      return WATCHDNA_BRAND_PAGE_OVERRIDES[normalized] || '';
+    }
+
+    function slugifyBrandForWatchDna(brandName) {
+      const original = String(brandName || '').trim();
+      if (!original) return '';
+
+      const overrideSlug = getBrandOverrideSlug(original);
+      if (overrideSlug) return overrideSlug;
+
+      return original
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/&/g, ' ')
+        .replace(/['’]/g, '')
+        .replace(/\./g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/-+/g, '-');
+    }
+
+    function getWatchDnaBrandHref(brandName, existingHref) {
+      if (isValidBrandHref(existingHref)) {
+        return buildBrandHref(existingHref);
+      }
+
+      const slug = slugifyBrandForWatchDna(brandName);
+      if (!slug) return '#';
+
+      return `${WATCHDNA_BRAND_BASE_URL}${slug}`;
+    }
+
+    function extractBrandLinksMap(row) {
+      const map = new Map();
+      const html = String(row['Custom Brands'] || '');
+
+      if (!html) return map;
+
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+
+      Array.from(temp.querySelectorAll('a[href]')).forEach((a) => {
+        const href = String(a.getAttribute('href') || '').trim();
+        const label = String(a.textContent || '').trim();
+        const normKey = normalizeBrandToken(label).toUpperCase();
+
+        if (label && href && normKey && !map.has(normKey)) {
+          map.set(normKey, href);
+        }
+      });
+
+      return map;
+    }
+
+    function isValidBrandHref(href) {
+      if (!href) return false;
+
+      const cleaned = String(href).trim().toLowerCase();
+      const bad = new Set([
+        '', '#', '/', 'n/a', 'na', 'none', 'null', 'not available'
+      ]);
+
+      if (bad.has(cleaned)) return false;
+
+      return /^https?:\/\//i.test(href) || href.startsWith('/');
+    }
+
+    function buildBrandHref(href) {
+      const raw = String(href || '').trim();
+      if (!raw) return '#';
+
+      if (/^https?:\/\//i.test(raw)) return raw;
+      if (raw.startsWith('/')) return `https://watchdna.com${raw}`;
+
+      return '#';
+    }
+
+    let prePinMapVisible = false; // tracks map-visible state before a pin was clicked
+
+    function setDetailPanelVisible(visible) {
+      const sidebar = document.getElementById('sidebar');
+      const panel = document.getElementById('storeDetailPanel');
+      const listContainer = document.getElementById('storeListContainer');
+      if (!sidebar || !panel || !listContainer) return;
+
+      if (visible) {
+        sidebar.classList.add('store-focused');
+        panel.classList.remove('hidden');
+        panel.setAttribute('aria-hidden', 'false');
+        //listContainer.classList.add('hidden');
+        //listContainer.style.display = 'none';
+        if (sidebar.classList.contains('map-visible')) {
+          sidebar.classList.remove('map-visible');
+          if (listBtn) {
+            listBtn.textContent = 'View Map →';
+            listBtn.classList.remove('list-mode');
+          }
+          if (menuBtn) menuBtn.style.display = 'none';
+        }
+      }
+      else {
+        sidebar.classList.remove('store-focused');
+        panel.classList.add('hidden');
+        panel.setAttribute('aria-hidden', 'true');
+        //listContainer.classList.remove('hidden');
+        //listContainer.style.display = '';
+        // Refresh sidebar list with current viewport stores
+        if (typeof updateSidebarForViewport === 'function') updateSidebarForViewport();
+      }
+    }
+
+    function openStoreDetail(row, marker) {
+      const nameEl = document.getElementById('detailName');
+      const addressEl = document.getElementById('detailAddress');
+      const phoneEl = document.getElementById('detailPhone');
+      const brandsEl = document.getElementById('detailBrands');
+      const brandsSectionEl = document.getElementById('detailBrandsSection');
+      const imageEl = document.getElementById('detailImage');
+      const directionsBtn = document.getElementById('detailDirectionsBtn');
+      const phoneBtn = document.getElementById('detailPhoneBtn');
+      const connectBtn = document.getElementById('detailConnectBtn');
+      const actionsEl = document.querySelector('.store-detail__actions');
+      const aboutSectionEl = document.getElementById('detailAboutSection');
+      const aboutEl = document.getElementById('detailAbout');
+
+      const hasEnName = !!row['Name EN'];
+      const name = hasEnName ? row['Name EN'].trim() : (row['Name'] || 'Unnamed').trim();
+      const originalDetailName = hasEnName ? row['Name'].trim() : '';
+      const address = buildFullAddress(row);
+      const phone = (row['Phone'] || '').trim();
+      const fullBrandsText = extractBrandsText(row);
+      const fullBrandLinks = extractBrandLinksMap(row);
+      const fullBrandList = fullBrandsText
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      const brandsHTML = fullBrandList.length
+        ? fullBrandList.map(b => {
+          const clean = b.trim();
+          const key = normalizeBrandToken(clean).toUpperCase();
+          const isVerifiedBrand = isLocationApprovedForBrand(row, clean);
+          const check = isVerifiedBrand ? ` <span class="verified-check" title="Verified brand">✓</span>` : "";
+          const href = getWatchDnaBrandHref(clean, fullBrandLinks.get(key));
+
+          if (isValidBrandHref(href)) {
+            return `<a class="brand-pill brand-pill--link" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(clean)}${check}</a>`;
+          }
+
+          return `<span class="brand-pill">${escapeHtml(clean)}${check}</span>`;
+        }).join(" ")
+        : "";
+
+      const hasVisibleBrands = fullBrandList.length > 0;
+      const isVerified = !!row._isPremium;
+
+      if (actionsEl) {
+        actionsEl.style.display = isVerified ? 'flex' : 'none';
+      }
+
+
+      if (nameEl) {
+        const verifiedBadge = isVerified
+          ? ` <span class="verified-location-badge" aria-label="AD Verified location" title="AD Verified location">✓</span>`
+          : '';
+        const origLine = originalDetailName
+          ? `<div class="store-original-name">${escapeHtml(originalDetailName)}</div>`
+          : '';
+        nameEl.innerHTML = `${escapeHtml(name)}${verifiedBadge}${origLine}`;
+      }
+
+      if (addressEl) {
+        const enAddr = row['Address Line 1 EN'] || '';
+        const displayAddress = enAddr ? buildFullAddress({
+          ...row,
+          'Address Line 1': enAddr,
+          'City': row['City EN'] || row['City'],
+        }) : address;
+        addressEl.textContent = displayAddress || 'Not provided';
+        addressEl.style.whiteSpace = 'pre-line';
+      }
+
+      if (phoneEl) {
+        if (isValidPhone(phone)) {
+          phoneEl.innerHTML = `<a href="${formatPhoneHref(phone)}">${phone}</a>`;
+        } else {
+          phoneEl.textContent = 'Not provided';
+        }
+      }
+
+      const aboutText = (row['Page Description'] || '').trim();
+
+      if (aboutSectionEl) {
+        aboutSectionEl.style.display = (isVerified && aboutText) ? "" : "none";
+      }
+
+      if (aboutEl) {
+        aboutEl.textContent = (isVerified && aboutText) ? aboutText : "";
+      }
+
+      // Image: show only for verified locations
+      if (imageEl) {
+        if (isVerified) {
+          imageEl.style.display = '';
+          const rawImageUrl = (row['Image URL'] || '').trim();
+          const imageUrl = rawImageUrl.startsWith('http')
+            ? rawImageUrl
+            : rawImageUrl
+              ? `${BACKEND_BASE_URL}${rawImageUrl}`
+              : '';
+
+          if (imageUrl) {
+            imageEl.style.backgroundImage = `url('${imageUrl}')`;
+            imageEl.style.backgroundSize = 'cover';
+            imageEl.style.backgroundPosition = 'center';
+
+            const imageText = imageEl.querySelector('.store-detail__imageText');
+            if (imageText) imageText.style.display = 'none';
+          } else {
+            imageEl.style.backgroundImage = '';
+            const imageText = imageEl.querySelector('.store-detail__imageText');
+            if (imageText) imageText.style.display = '';
+          }
+        } else {
+          imageEl.style.backgroundImage = '';
+          imageEl.style.display = 'none';
+        }
+      }
+
+      if (brandsSectionEl) {
+        brandsSectionEl.style.display = hasVisibleBrands ? '' : 'none';
+      }
+
+      if (brandsEl) {
+        brandsEl.innerHTML = hasVisibleBrands ? brandsHTML : '';
+      }
+
+
+
+      // Directions: use lat/lng if available, otherwise fall back to address
+      const lat = parseFloat(String(row.Latitude || '').trim());
+      const lon = parseFloat(String(row.Longitude || '').trim());
+      const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
+
+      if (directionsBtn) {
+        const storeName = (row['Name'] || '').trim();
+        const addressQuery = address.replace(/\n/g, ', ');
+        const mapsQuery = encodeURIComponent(`${storeName}, ${addressQuery}`);
+        directionsBtn.href = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+      }
+
+      if (phoneBtn) {
+        if (isValidPhone(phone)) {
+          phoneBtn.href = formatPhoneHref(phone);
+          phoneBtn.textContent = 'Call';
+          phoneBtn.style.opacity = '1';
+          phoneBtn.style.pointerEvents = 'auto';
+          phoneBtn.removeAttribute('aria-disabled');
+        } else {
+          phoneBtn.href = '#';
+          phoneBtn.textContent = 'Call';
+          phoneBtn.style.opacity = '0.5';
+          phoneBtn.style.pointerEvents = 'none';
+          phoneBtn.setAttribute('aria-disabled', 'true');
+        }
+      }
+
+      // Connect: verified locations go to retailer website
+      const website = normalizeWebsiteUrl(row['Website']);
+      if (connectBtn) {
+        if (isVerified && website) {
+          connectBtn.href = website;
+          connectBtn.target = '_blank';
+          connectBtn.rel = 'noopener noreferrer';
+          connectBtn.textContent = 'Connect';
+          connectBtn.style.opacity = '1';
+          connectBtn.style.pointerEvents = 'auto';
+          connectBtn.removeAttribute('aria-disabled');
+        } else {
+          connectBtn.href = '#';
+          connectBtn.textContent = 'Connect';
+          connectBtn.style.opacity = '0.5';
+          connectBtn.style.pointerEvents = 'none';
+          connectBtn.setAttribute('aria-disabled', 'true');
+        }
+      }
+
+      // Save the current map position so we can restore it when the detail panel closes
+      preDetailMapView = { center: map.getCenter(), zoom: map.getZoom() };
+      setDetailPanelVisible(true);
+
+      // Optional: keep the map movement consistent
+      if (marker && hasCoords) {
+        // Keep the current zoom/position so tight clusters do not recluster immediately
+      }
+    }
+
+    // Restores the map to where the user was before opening a store detail panel.
+    function resetFocusedStore() {
+      setDetailPanelVisible(false);
+
+      if (preDetailMapView) {
+        map.setView(preDetailMapView.center, preDetailMapView.zoom, { animate: true });
+        preDetailMapView = null;
+      } else if (lastSearchAreaBounds) {
+        map.fitBounds(lastSearchAreaBounds, { animate: true });
+      }
+    }
+
+    // When the close store detail button is clicked, it will close itself, the popup, and zoom the map back out to full view
+    const closeBtn = document.getElementById('detailCloseBtn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        // Hide the store detail panel (mainly for if radiusCircle is true)
+        setDetailPanelVisible(false);
+
+        // Close the popup on the associated map marker
+        if (focusedMarker) {
+          focusedMarker.setZIndexOffset(0);
+        }
+        focusedMarker = null;
+
+        resetFocusedStore();
+      });
+    }
+
+    function rebuildStoreCheckboxes(rowsForList) {
+      // rowsForList should be the rows after applying non-checkbox filters
+      const storeCheckboxesDiv = document.getElementById('storeCheckboxes');
+      if (!storeCheckboxesDiv) return;
+
+      // The store list is only shown while the user has text in the store
+      // search box. When the box is empty, the container is display:none
+      // (see applyFilter), so rebuilding thousands of hidden checkboxes on
+      // every filter toggle is pure waste — at low zoom this was the main
+      // cause of the UI freeze when ticking category filters.
+      const storeInput = (document.getElementById('storeFilter')?.value || '').trim();
+      if (!storeInput) {
+        storeCheckboxesDiv.innerHTML = '';
+        return;
+      }
+
+      storeCheckboxesDiv.innerHTML = '';
+
+      const storeNames = [...new Set(rowsForList.map(r => (r['Name'] || '').trim()).filter(Boolean))].sort();
+
+      // Remove any previously-checked stores that are no longer present
+      const storeNameSet = new Set(storeNames.map(s => s.toLowerCase()));
+      Array.from(userCheckedStores).forEach(s => { if (!storeNameSet.has(s)) userCheckedStores.delete(s); });
+
+      storeNames.forEach(name => {
+        const label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '8px';
+        label.style.padding = '2px 0';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = name;
+        // restore user selection if previously checked
+        cb.checked = userCheckedStores.has(name.toLowerCase());
+        cb.addEventListener('change', () => {
+          const val = cb.value.toLowerCase();
+          if (cb.checked) userCheckedStores.add(val); else userCheckedStores.delete(val);
+          applyFilter();
+        });
+
+        const span = document.createElement('span');
+        span.textContent = name;
+        span.style.userSelect = 'none';
+
+        label.appendChild(cb);
+        label.appendChild(span);
+        storeCheckboxesDiv.appendChild(label);
+      });
+    }
+
+    // Sync the "Filter by store" checkbox list with the rows that passed ALL filters
+    function syncStoreCheckboxes(filteredRows) {
+      const allowed = new Set(
+        filteredRows.map(r => (r['Name'] || '').trim().toLowerCase())
+      );
+
+      const q = (document.getElementById('storeFilter').value || '')
+        .trim().toLowerCase();
+
+      // Walk all checkbox rows in the list
+      document.querySelectorAll('#storeCheckboxes label').forEach(label => {
+        const cb = label.querySelector('input[type="checkbox"]');
+        const name = (label.querySelector('span')?.textContent || cb.value || '')
+          .trim().toLowerCase();
+
+        const inFiltered = allowed.has(name);
+
+        // Show/hide entries that are not part of the current filtered set
+        label.style.display = inFiltered ? '' : 'none';
+
+        // Do not auto-check matches when the user types — leave checked state
+        // under user control. If an item is no longer in the filtered set,
+        // uncheck it and remove it from the user's selection set.
+        if (!inFiltered) {
+          cb.checked = false;
+          userCheckedStores.delete(cb.value.toLowerCase());
+        }
+      });
+    }
+
+    function isRowInsideBounds(row, bounds) {
+      const lat = parseFloat(String(row.Latitude || '').trim());
+      const lon = parseFloat(String(row.Longitude || '').trim());
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || !bounds) {
+        return false;
+      }
+
+      return bounds.contains(L.latLng(lat, lon));
+    }
+
+    function applyFilter() {
+      // Markers are swapped at the end via setClusterMarkers() — never clear here, a
+      // chunked addLayers pass may still be in flight and clearing would corrupt it.
+      // Snapshot current map bounds once so all viewport checks in this call are consistent,
+      // even if the map animates mid-call due to a flyTo triggered by a filter change.
+      const currentMapBounds = map.getBounds();
+
+
+      const selectedBrandEls = document.querySelectorAll('#brandCheckboxes input[type="checkbox"]:checked');
+      const brandSet = new Set(Array.from(selectedBrandEls).map(el => (el.value || '').toUpperCase().trim()));
+      const brandFilterActive = brandSet.size > 0;
+      const storeInput = (document.getElementById('storeFilter').value || '').trim().toLowerCase();
+
+      const filterDealer = document.getElementById('filterCategoryDealer')?.checked;
+      const filterBoutique = document.getElementById('filterCategoryBoutique')?.checked;
+      const filterService = document.getElementById('filterCategoryService')?.checked;
+      const categoryFilterOn = filterDealer || filterBoutique || filterService;
+      // Service centers are brandless listings: with only Service Center checked the brand
+      // dropdown is emptied below, so a lingering (now invisible) brand selection must not
+      // keep filtering the map.
+      const serviceOnlyCategory = !!filterService && !filterDealer && !filterBoutique;
+      const brandFilterApplies = brandFilterActive && !serviceOnlyCategory;
+      const premiumFilterActive = categoryFilterOn || brandFilterActive;
+
+      let brandListRows = [];  // rows for populating the brand checkbox list (ignores toggle + brand filter)
+      let preFilterRows = [];  // rows passing text + type filters (ignores brand filter only)
+      let baseRows = [];       // rows passing ALL filters
+      let baseRowsBeforeAreaFilter = [];
+
+      allMarkers.forEach(({ row }) => {
+        // --- Pass 1: text search only ---
+        let passesText = true;
+        if (storeInput) {
+          if (storeInput.startsWith('handle:')) {
+            const h = storeInput.split(':', 2)[1] || '';
+            passesText = (String(row['Handle'] || '') === h);
+          } else {
+            const searchFields = [
+              row['Name'] || '',
+              row['City'] || '',
+              row['State/Province/Region'] || '',
+              row['Address Line 1'] || '',
+              row['Address Line 2'] || '',
+              row['Country'] || '',
+              row['Zip/Postal Code'] || '',
+              row['Name EN'] || '',
+              row['Address Line 1 EN'] || '',
+              row['City EN'] || '',
+              extractBrandsText(row) || '',
+            ].map(f => String(f).toLowerCase());
+            passesText = searchFields.some(field => field.includes(storeInput));
+          }
+        }
+
+        if (!passesText) return;
+
+        const brandTokens = getBrandTokensForFilter(row);
+
+        // Only show stores that are one of the three verified types
+        const isQualifiedStore = row._isVerifiedDealer || row._isBoutique || row._isServiceCenter;
+
+        let passesCategory = true;
+        if (premiumFilterActive) {
+          if (!categoryFilterOn) {
+            // Brand-only filtering still scopes results to premium categories.
+            passesCategory = isQualifiedStore;
+          } else {
+            passesCategory =
+              (filterDealer && row._isVerifiedDealer) ||
+              (filterBoutique && row._isBoutique) ||
+              (filterService && row._isServiceCenter);
+          }
+        }
+
+        const passesType = passesCategory;
+
+        if (passesType) preFilterRows.push(row);
+        // When a category filter is active, include all matching premium stores globally
+        // so brands aren't lost during the flyTo animation triggered by the filter change —
+        // but only stores passing the selected categories (Boutique checked must not list
+        // verified dealers' brands). When no category filter is active, restrict to the
+        // current viewport so the brand list reflects what the user can actually see.
+        if (passesText && passesCategory && row._isPremium && (categoryFilterOn || currentMapBounds.contains(L.latLng(
+          parseFloat(String(row.Latitude).trim()),
+          parseFloat(String(row.Longitude).trim())
+        )))) brandListRows.push(row);
+
+        // --- Pass 4: apply brand filter ---
+        let passesBrand = passesCategory;
+        if (passesBrand && brandFilterApplies) {
+          const brands = new Set(brandTokens.map(s => s.toUpperCase()));
+          passesBrand = [...brandSet].every(b => brands.has(b));
+        }
+
+        if (passesBrand) baseRows.push(row);
+      });
+
+      baseRowsBeforeAreaFilter = baseRows.slice();
+
+      // Apply area filter to all three row sets.
+      // Store search and premium/category filters should run globally across all loaded rows.
+      if (areaFilterEnabled && areaFilterBounds && !storeInput && !premiumFilterActive) {
+        brandListRows = brandListRows.filter(row => isRowInsideBounds(row, areaFilterBounds));
+        preFilterRows = preFilterRows.filter(row => isRowInsideBounds(row, areaFilterBounds));
+        baseRows = baseRows.filter(row => isRowInsideBounds(row, areaFilterBounds));
+      } else if (areaFilterEnabled && areaFilterBounds && !storeInput) {
+        brandListRows = brandListRows.filter(row => isRowInsideBounds(row, areaFilterBounds));
+      }
+
+      // Rebuild brand list from brandListRows (reacts to search + service center, not toggle or brand filter).
+      // Skip the rebuild while the silent global load is still streaming in and no filter is narrowing —
+      // otherwise the canonical API-populated brand list (set in finishMapSetup) would get wiped to
+      // "brands present in nearby rows only" until the user touches a filter.
+      const userIsNarrowing = !!storeInput || categoryFilterOn || brandFilterActive || areaFilterEnabled;
+      if (userIsNarrowing || _fullLoadComplete) {
+        try {
+          const prevCheckedBrands = new Set(
+            Array.from(document.querySelectorAll('#brandCheckboxes input[type="checkbox"]:checked'))
+              .map(cb => cb.value)
+          );
+
+          // Service centers are brandless in the filter UI: with only Service Center checked
+          // the dropdown stays empty (placeholder text), and service-center-only stores never
+          // contribute brand checkboxes in any mode — dealers and boutiques drive the brand list.
+          const visibleBrandSet = new Set();
+          if (!serviceOnlyCategory) {
+            brandListRows.forEach(row => {
+              if (!row._isVerifiedDealer && !row._isBoutique) return;
+              const premiumBrands = getPremiumFilterBrandsList(row);
+              if (premiumBrands.length > 0) {
+                premiumBrands.forEach(b => visibleBrandSet.add(b));
+              } else {
+                // Fall back to the store's regular brands when premiumFilterBrands isn't set.
+                extractBrandsText(row).split(',').map(s => s.trim()).filter(Boolean)
+                  .forEach(b => visibleBrandSet.add(b));
+              }
+            });
+          }
+
+          populateBrandSelect(visibleBrandSet);
+
+          document.querySelectorAll('#brandCheckboxes input[type="checkbox"]').forEach(cb => {
+            if (prevCheckedBrands.has(cb.value)) cb.checked = true;
+          });
+        } catch (e) {
+          console.warn('Could not update brand list dynamically', e);
+        }
+      }
+
+      rebuildStoreCheckboxes(baseRows);
+      syncStoreCheckboxes(baseRows);
+
+      try {
+        const storeCheckboxesDiv = document.getElementById('storeCheckboxes');
+        if (storeCheckboxesDiv) {
+          storeCheckboxesDiv.style.display = storeInput && storeInput.trim() ? 'block' : 'none';
+        }
+      } catch (e) {
+        console.warn('Could not toggle storeCheckboxes visibility', e);
+      }
+
+      const checkedStores = Array.from(
+        document.querySelectorAll('#storeCheckboxes input[type="checkbox"]:checked')
+      ).map(cb => cb.value.toLowerCase());
+      const baseRowSet = new Set(baseRows);
+
+      const markersToShow = [];
+      allMarkers.forEach(({ row, marker }) => {
+        let show = baseRowSet.has(row);
+        if (show && checkedStores.length > 0) {
+          const nameLower = (row['Name'] || '').trim().toLowerCase();
+          show = checkedStores.includes(nameLower);
+        }
+        if (show) markersToShow.push(marker);
+      });
+      setClusterMarkers(markersToShow);
+
+      const hasOffscreenMatchesInAreaMode = areaFilterEnabled && !storeInput && baseRowsBeforeAreaFilter.length > 0 && baseRows.length === 0;
+      if (hasOffscreenMatchesInAreaMode && allMarkers.length > 0) {
+        const centre = map.getCenter();
+        let nearestMarker = null;
+        let nearestDistance = Infinity;
+        const candidateRows = new Set(baseRowsBeforeAreaFilter);
+
+        allMarkers.forEach(({ row, marker }) => {
+          if (!candidateRows.has(row)) return;
+          const markerLatLng = marker.getLatLng();
+          const distance = map.distance(centre, markerLatLng);
+          if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestMarker = marker;
+          }
+        });
+
+        if (nearestMarker) {
+          map.once('moveend', () => {
+            areaFilterBounds = map.getBounds().pad(AREA_FILTER_PAD);
+            lastSearchAreaBounds = areaFilterBounds;
+            applyFilter();
+          });
+          map.flyTo(nearestMarker.getLatLng(), 12, { animate: true, duration: 1.5 });
+          setNearMeStatus('No stores in this area — showing nearest match');
+        }
+      }
+
+      // When premium/category filters are active, ensure the user sees at least one match on-map
+      // even if current map area has no matching stores.
+      if (premiumFilterActive && !storeInput && markersToShow.length > 0) {
+        const mapBoundsNow = map.getBounds();
+        const inViewCount = markersToShow.reduce((count, marker) => (
+          mapBoundsNow.contains(marker.getLatLng()) ? count + 1 : count
+        ), 0);
+
+        if (inViewCount === 0) {
+          const centre = map.getCenter();
+          let nearestMarker = null;
+          let nearestDistance = Infinity;
+          markersToShow.forEach((marker) => {
+            const distance = map.distance(centre, marker.getLatLng());
+            if (distance < nearestDistance) {
+              nearestDistance = distance;
+              nearestMarker = marker;
+            }
+          });
+          if (nearestMarker) {
+            map.flyTo(nearestMarker.getLatLng(), 12, { animate: true, duration: 1.5 });
+          }
+        }
+      }
+
+      updateSidebarForViewport();
+
+      const countEl = document.getElementById('searchResultCount');
+      if (countEl) {
+        // Count the intended set — clusterGroup.getLayers() is partial mid-chunked-add.
+        const visible = markersToShow.length;
+        const storeInputVal = (document.getElementById('storeFilter').value || '').trim();
+        const filtersActive =
+          storeInputVal ||
+          brandFilterActive ||
+          document.querySelectorAll('#typeCheckboxes input:checked').length > 0 ||
+          areaFilterEnabled;
+
+        if (visible === 0 && filtersActive) {
+          const hasCategory = categoryFilterOn;
+          const hasArea = areaFilterEnabled;
+          if (hasCategory && hasArea) {
+            countEl.textContent = 'No matching stores in this area — try searching a different area';
+          } else if (hasCategory) {
+            countEl.textContent = 'No matching stores found — try a different filter combination';
+          } else if (hasArea) {
+            countEl.textContent = 'No stores in this area — try searching a different area';
+          } else {
+            countEl.textContent = '0 locations found';
+          }
+        } else {
+          countEl.textContent = filtersActive
+            ? `${visible} location${visible !== 1 ? 's' : ''} found${areaFilterEnabled ? ' in this area' : ''}`
+            : '';
+        }
+
+        // Keep nearMeStatus in sync with the actual visible count when area filter is active
+        if (areaFilterEnabled) {
+          setNearMeStatus(`Showing ${visible} location${visible !== 1 ? 's' : ''} in this area`);
+        }
+      }
+      dismissLoadingScreen();
+    }
+
+    function setMapLoading(on) {
+      const overlay = document.getElementById('mapLoadingOverlay');
+      if (!overlay) return;
+      overlay.classList.toggle('is-active', !!on);
+      overlay.setAttribute('aria-hidden', on ? 'false' : 'true');
+    }
+
+    // Run `work` while the map loading spinner is visible. Yields to the
+    // browser so the spinner paints before any heavy synchronous work, and
+    // keeps the spinner on screen for at least 350ms from first paint so it
+    // doesn't flicker on fast machines.
+    let _activeLoadingTasks = 0;
+    async function withMapLoading(work) {
+      _activeLoadingTasks++;
+      setMapLoading(true);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const minVisible = new Promise(r => setTimeout(r, 350));
+      try {
+        return await work();
+      } finally {
+        await minVisible;
+        _activeLoadingTasks = Math.max(0, _activeLoadingTasks - 1);
+        if (_activeLoadingTasks === 0) setMapLoading(false);
+      }
+    }
+
+    async function searchThisArea() {
+      await withMapLoading(async () => {
+        try {
+          // If the silent full-load is still in flight, wait for it so the area
+          // filter reflects every store, not just the nearby subset.
+          if (_fullLoadPromise) {
+            try { await _fullLoadPromise; } catch (_) { /* fall through and filter what we have */ }
+          }
+          const currentBounds = map.getBounds().pad(AREA_FILTER_PAD);
+          areaFilterEnabled = true;
+          areaFilterBounds = currentBounds;
+          lastSearchAreaBounds = currentBounds;
+          applyFilter();
+          const visible = getVisibleMarkers().length;
+          setNearMeStatus(`Showing ${visible} location${visible !== 1 ? 's' : ''} in this area`);
+        } catch (err) {
+          console.error('Error searching this area:', err);
+          setNearMeStatus('Unable to search this area.');
+        }
+      });
+    }
+
+    function isTouchLikeDevice() {
+      return (
+        window.matchMedia('(pointer: coarse)').matches ||
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0
+      );
+    }
+
+    function isMobileSafari() {
+      const ua = navigator.userAgent || '';
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
+      const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
+      return isIOS && isSafari;
+    }
+
+    function requestLocationFromDirectGesture() {
+      if (!navigator.geolocation) {
+        setNearMeStatus('Geolocation not supported.');
+        return;
+      }
+
+      setNearMeStatus('Locating...');
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
+          cachedLatLng = ll;
+          lastLocationTime = Date.now();
+          startupLocateAttempted = true;
+          clearStartupGestureListeners();
+
+          showUserMarker(ll);
+
+          try {
+            localStorage.setItem('watchdna_location_enabled', 'true');
+          } catch (e) {
+            console.warn('Could not persist location preference.', e);
+          }
+
+          map.once('moveend', () => {
+            try {
+              const currentBounds = map.getBounds().pad(AREA_FILTER_PAD);
+
+              areaFilterEnabled = true;
+              areaFilterBounds = currentBounds;
+              lastSearchAreaBounds = currentBounds;
+
+              applyFilter();
+
+              const visible = getVisibleMarkers().length;
+              setNearMeStatus(`Showing ${visible} location${visible !== 1 ? 's' : ''} near you`);
+            } catch (err) {
+              console.error('Error applying location filter:', err);
+              setNearMeStatus('Unable to filter nearby locations.');
+            }
+          });
+
+          map.flyTo(ll, 10, {
+            animate: true,
+            duration: 1.8
+          });
+        },
+        (err) => {
+          const m = {
+            1: 'Location access was denied. Use the location button to try again.',
+            2: 'Position unavailable.',
+            3: 'Request timed out.'
+          };
+
+          setNearMeStatus(m[err.code] || 'Unable to get location.');
+          syncViewportCountVisibility();
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 15000,
+          maximumAge: 300000
+        }
+      );
+    }
+
+    function canUseBrowserLocation() {
+      return window.isSecureContext && !!navigator.geolocation;
+    }
+
+    function isInIframe() {
+      try {
+        return window.self !== window.top;
+      } catch (e) {
+        // Cross-origin parent — we're definitely in an iframe
+        return true;
+      }
+    }
+
+    async function getGeolocationPermissionState() {
+      try {
+        if (!navigator.permissions || !navigator.permissions.query) {
+          return 'unknown';
+        }
+
+        const result = await navigator.permissions.query({ name: 'geolocation' });
+        return result.state || 'unknown';
+      } catch (err) {
+        return 'unknown';
+      }
+    }
+
+    let startupGestureArmed = false;
+    let startupLocateAttempted = false;
+    let startupGestureCleanup = null;
+
+    function clearStartupGestureListeners() {
+      if (typeof startupGestureCleanup === 'function') {
+        startupGestureCleanup();
+      }
+      startupGestureCleanup = null;
+      startupGestureArmed = false;
+    }
+
+    function armStartupGestureLocate() {
+      if (startupGestureArmed || startupLocateAttempted || !navigator.geolocation) return;
+
+      const triggerFromGesture = () => {
+        if (startupLocateAttempted) return;
+        requestLocationFromDirectGesture();
+      };
+
+      startupGestureCleanup = () => {
+        document.removeEventListener('touchend', onTouchEnd);
+        document.removeEventListener('click', onClick);
+      };
+
+      startupGestureArmed = true;
+    }
+
+    function tryAutoLocateOnStartup() {
+      if (!navigator.geolocation) {
+        setNearMeStatus('Geolocation not supported.');
+        return;
+      }
+
+      if (isMobileSafari()) {
+        setNearMeStatus('Tap the ⌖ button to show nearby locations.');
+        return;
+      }
+
+      if (isTouchLikeDevice()) {
+        startupLocateAttempted = true;
+        centerOnUserLocation({ triggeredByUserGesture: false, suppressDeniedMessage: true });
+        return;
+      }
+
+      startupLocateAttempted = true;
+      centerOnUserLocation({ triggeredByUserGesture: false, suppressDeniedMessage: true });
+    }
+
+    function centerOnUserLocation(options = {}) {
+      const {
+        triggeredByUserGesture = false,
+        suppressDeniedMessage = false
+      } = options;
+
+      if (!navigator.geolocation) {
+        setNearMeStatus('Geolocation not supported.');
+        return;
+      }
+
+      if (triggeredByUserGesture) {
+        clearStartupGestureListeners();
+      }
+
+      setNearMeStatus('Locating...');
+
+      getUserLatLng(
+        (ll) => {
+          clearStartupGestureListeners();
+          startupLocateAttempted = true;
+
+          showUserMarker(ll);
+
+          try {
+            localStorage.setItem('watchdna_location_enabled', 'true');
+          } catch (e) {
+            console.warn('Could not persist location preference.', e);
+          }
+
+          map.once('moveend', () => {
+            try {
+              const currentBounds = map.getBounds().pad(AREA_FILTER_PAD);
+
+              areaFilterEnabled = true;
+              areaFilterBounds = currentBounds;
+              lastSearchAreaBounds = currentBounds;
+
+              applyFilter();
+
+              const visible = getVisibleMarkers().length;
+              setNearMeStatus(`Showing ${visible} location${visible !== 1 ? 's' : ''} near you`);
+            } catch (err) {
+              console.error('Error applying location filter:', err);
+              setNearMeStatus('Unable to filter nearby locations.');
+            }
+          });
+
+          map.flyTo(ll, 10, {
+            animate: true,
+            duration: 1.8
+          });
+        },
+        (err) => {
+          const denied = err && err.code === 1;
+
+          if (denied && isTouchLikeDevice() && !triggeredByUserGesture) {
+            setNearMeStatus('Tap anywhere or use the location button to enable location.');
+            armStartupGestureLocate();
+            syncViewportCountVisibility();
+            return;
+          }
+
+          if (denied && suppressDeniedMessage) {
+            setNearMeStatus('Use the location button to enable nearby results.');
+            syncViewportCountVisibility();
+            return;
+          }
+
+          const iframeBlocked = err && err.code === 1 && isInIframe();
+
+          const m = {
+            1: iframeBlocked
+              ? 'Location access is blocked — the site embed needs allow="geolocation" to enable this feature.'
+              : 'Location denied. On iPhone: Settings → Privacy & Security → Location Services → Safari → Allow.',
+            2: 'Position unavailable.',
+            3: 'Request timed out.'
+          };
+
+          setNearMeStatus(m[err.code] || 'Unable to get location.');
+          syncViewportCountVisibility();
+        }
+      );
+    }
+
+    // Hide viewportCount when nearMeStatus is already surfacing a useful location message,
+    // or when nearMeStatus is showing an error (to avoid redundant/conflicting UI)
+    function syncViewportCountVisibility() {
+      const countEl = document.getElementById('viewportCount');
+      if (!countEl) return;
+
+      const nearMeEl = document.getElementById('nearMeStatus');
+      const nearMeText = (nearMeEl?.textContent || '').trim();
+
+      // Show viewportCount only when nearMeStatus is empty or showing an error
+      // If nearMe is showing a "Showing X locations" message, viewportCount is redundant
+      const nearMeIsActive = nearMeText && !nearMeHasError;
+      countEl.style.display = nearMeIsActive ? 'none' : '';
+    }
+
+    const NearMeControl = L.Control.extend({
+      options: { position: 'topright' },
+
+      onAdd: function () {
+        const container = L.DomUtil.create('div', 'leaflet-control leaflet-control-custom watchdna-map-controls');
+
+        container.innerHTML = `
+      <button type="button" class="map-action-btn map-action-btn--wide" id="searchAreaBtn" data-translate data-translate-attr="title,aria-label" title="Search this area" aria-label="Search this area">
+        Search this area
+      </button>
+      <button type="button" class="map-action-btn map-action-btn--icon" id="locateBtn" data-translate="attrs" data-translate-attr="title,aria-label" title="Use my location" aria-label="Use my location">
+        ⌖
+      </button>
+    `;
+
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.disableScrollPropagation(container);
+
+        const searchBtn = container.querySelector('#searchAreaBtn');
+        const locateBtn = container.querySelector('#locateBtn');
+
+        searchBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          searchThisArea();
+        });
+
+        locateBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          clearStartupGestureListeners();
+          startupLocateAttempted = true;
+          requestLocationFromDirectGesture();
+        });
+
+        return container;
+      }
+    });
+
+    // --- Near Me helpers ---
+    let userMarker = null;
+    let nearestLine = null;
+    let nearestMarker = null;
+
+    let nearMeHasError = false;
+
+    function setNearMeStatus(msg) {
+      const el = document.getElementById('nearMeStatus');
+      if (el) el.textContent = msg || '';
+
+      const errorMessages = new Set([
+        'Geolocation not supported.',
+        'Unable to get location.',
+        'Unable to filter nearby locations.',
+        'Unable to search this area.'
+      ]);
+
+      nearMeHasError = !msg || errorMessages.has(msg);
+      syncViewportCountVisibility();
+    }
+
+    function toLatLng(lat, lng) { return L.latLng(lat, lng); }
+
+    function findNearest(targetLatLng) {
+      let best = null;
+      allMarkers.forEach(({ row, marker }) => {
+        const d = map.distance(targetLatLng, marker.getLatLng());
+        if (!best || d < best.dist) best = { dist: d, row, marker };
+      });
+      return best;
+    }
+
+    function emphasizeNearest(userLL, best) {
+      if (nearestLine) { map.removeLayer(nearestLine); nearestLine = null; }
+      if (nearestMarker) { nearestMarker.setZIndexOffset(0); nearestMarker = null; }
+      if (!best) { setNearMeStatus('No locations loaded.'); return; }
+
+      nearestMarker = best.marker;
+      const row = best.row || getRowForMarker(nearestMarker);
+
+      nearestMarker.setZIndexOffset(1000);
+      nearestLine = L.polyline([userLL, nearestMarker.getLatLng()], { weight: 3, dashArray: '6,6' }).addTo(map);
+
+      const km = (best.dist / 1000).toFixed(2);
+      const b = L.latLngBounds([userLL, best.marker.getLatLng()]).pad(0.4);
+      map.fitBounds(b);
+
+      setNearMeStatus(`Closest: ${(row['Name'] || 'Location')} — ${km} km`);
+      nearestMarker.fire("click");
+    }
+
+    function showUserMarker(ll) {
+      if (userMarker) {
+        userMarker.setLatLng(ll);
+      } else {
+        userMarker = L.marker(ll, { title: 'You are here' })
+          .bindPopup('<b>You are here</b>')
+          .addTo(map);
+      }
+
+      if (userAccuracyCircle) {
+        userAccuracyCircle.setLatLng(ll);
+      } else {
+        userAccuracyCircle = L.circle(ll, {
+          radius: 25,
+          stroke: false,
+          fillOpacity: 0.15
+        }).addTo(map);
+      }
+    }
+
+    // Return the markers currently visible after applyFilter().
+    // Reads the scheduler's intended set, not clusterGroup.getLayers() — the latter is
+    // incomplete while a chunked addLayers pass is still streaming markers in, which made
+    // the sidebar list and counts disagree with the map.
+    function getVisibleMarkers() {
+      return _currentClusterMarkers;
+    }
+
+    // Lookup the original row for a given marker
+    function getRowForMarker(marker) {
+      const rec = allMarkers.find(x => x.marker === marker);
+      return rec ? rec.row : {};
+    }
+
+    function renderStoreListingsFromLayers(layers) {
+      const storeList = document.getElementById('storeListings');
+      if (!storeList) return;
+
+      storeList.innerHTML = '';
+
+      const items = (layers || []).map(marker => ({
+        marker,
+        row: getRowForMarker(marker)
+      }));
+
+      const hasUserLocation = !!cachedLatLng;
+
+      items.sort((a, b) => {
+        if (hasUserLocation) {
+          const distA = map.distance(cachedLatLng, a.marker.getLatLng());
+          const distB = map.distance(cachedLatLng, b.marker.getLatLng());
+
+          if (Math.abs(distA - distB) > 1) {
+            return distA - distB;
+          }
+        }
+
+        const aVerified = a.row && a.row._isPremium === true ? 1 : 0;
+        const bVerified = b.row && b.row._isPremium === true ? 1 : 0;
+
+        if (aVerified !== bVerified) return bVerified - aVerified;
+
+        const aName = String(a.row?.['Name'] || '').toLowerCase();
+        const bName = String(b.row?.['Name'] || '').toLowerCase();
+        return aName.localeCompare(bName);
+      });
+
+      items.forEach(({ row, marker }) => {
+        const item = document.createElement('div');
+        item.className = row._isPremium ? 'store verified' : 'store';
+
+        // Use English translation if available, show original as subtitle
+        const hasEnName = !!row['Name EN'];
+        const displayName = hasEnName ? row['Name EN'] : (row['Name'] || 'Unnamed');
+        const originalName = hasEnName ? row['Name'] : '';
+
+        const addressLine = row['Address Line 1 EN'] || row['Address Line 1'] || '';
+
+        const locationParts = [
+          row['City EN'] || row['City'],
+          row['State/Province/Region'],
+          row['Country']
+        ].filter(Boolean);
+
+        const locationLine = locationParts.join(', ');
+
+        const isVerified = !!row._isPremium;
+
+        const rawImageUrl = (row['Image URL'] || '').trim();
+        const imageUrl = rawImageUrl.startsWith('http')
+          ? rawImageUrl
+          : rawImageUrl
+            ? `${BACKEND_BASE_URL}${rawImageUrl}`
+            : '';
+
+        let distanceLine = '';
+        if (cachedLatLng) {
+          const km = (map.distance(cachedLatLng, marker.getLatLng()) / 1000).toFixed(1);
+          distanceLine = `<div class="store-distance">${km} km away</div>`;
+        }
+
+        const verifiedLabel = isVerified
+          ? `
+    <div class="store-card-badge-row">
+      <div class="store-card-badge">AD Verified</div>
+      <span class="verified-location-badge" aria-label="AD Verified location" title="AD Verified location">✓</span>
+    </div>
+  `
+          : '';
+
+        const imageHtml = (isVerified && imageUrl)
+          ? `
+      <div class="store-card-media">
+        <img src="${imageUrl}" alt="${escapeHtml(row['Name'] || 'Store image')}" class="store-card-image">
+      </div>
+    `
+          : '';
+
+        const originalNameHtml = originalName
+          ? `<div class="store-original-name">${escapeHtml(originalName)}</div>`
+          : '';
+
+        item.innerHTML = `
+    <div class="store-card-row">
+      <div class="store-card-content">
+        ${verifiedLabel}
+        <strong>${escapeHtml(displayName)}</strong>
+        ${originalNameHtml}
+        ${addressLine}<br>
+        ${locationLine}
+        ${distanceLine}
+      </div>
+      ${imageHtml}
+    </div>
+  `;
+
+        item.addEventListener('click', () => {
+          if (focusedMarker && focusedMarker !== marker) {
+            focusedMarker.setZIndexOffset(0);
+          }
+
+          const focusAndOpen = () => {
+            const markerLatLng = marker.getLatLng();
+
+            focusedMarker = marker;
+            marker.setZIndexOffset(1000);
+
+            map.panTo(markerLatLng, { animate: true });
+            openStoreDetail(row, marker);
+          };
+
+          if (marker.__parent || map.hasLayer(marker)) {
+            clusterGroup.zoomToShowLayer(marker, focusAndOpen);
+          } else {
+            // Marker is in the intended set but a chunked addLayers pass hasn't reached it
+            // yet — zoomToShowLayer would throw. Fly to its position instead.
+            map.setView(marker.getLatLng(), Math.max(map.getZoom(), 13));
+            focusAndOpen();
+          }
+        });
+
+        storeList.appendChild(item);
+      });
+    }
+
+    function populateBrandSelect(brandSet) {
+      const container = document.getElementById('brandCheckboxes');
+      container.innerHTML = '';
+
+      const brands = [...brandSet].sort();
+
+      if (brands.length === 0) {
+        const msg = document.createElement('p');
+        msg.textContent = 'See AD Verified stores for active brands.';
+        msg.style.cssText = 'font-size:0.9rem; opacity:0.6; margin:4px 0 0; font-style:italic;';
+        container.appendChild(msg);
+      }
+      const groups = {};
+      brands.forEach(b => {
+        const letter = b[0].toUpperCase();
+        if (!groups[letter]) groups[letter] = [];
+        groups[letter].push(b);
+      });
+
+      function makeBrandLabel(b) {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex; align-items:center; gap:6px; padding:2px 0;';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = b;
+        cb.addEventListener('change', () => applyFilter());
+
+        const span = document.createElement('span');
+        span.textContent = b;
+        span.style.userSelect = 'none';
+
+        label.appendChild(cb);
+        label.appendChild(span);
+        return label;
+      }
+
+      Object.keys(groups).sort().forEach(letter => {
+        const header = document.createElement('div');
+        header.className = 'brand-group-header';
+        header.innerHTML = `<span class="brand-letter">${letter}</span>`;
+
+        const group = document.createElement('div');
+        group.className = 'brand-group';
+
+        groups[letter].forEach(b => group.appendChild(makeBrandLabel(b)));
+
+        container.appendChild(header);
+        container.appendChild(group);
+      });
+    }
+
+    // --- Viewport-aware sidebar list ---
+    // Only show stores in the sidebar that are within the current map viewport.
+    // Updates on pan/zoom via the 'moveend' event.
+    let viewportDebounceTimer = null;
+
+    function updateSidebarForViewport() {
+      // Don't update the list when the store detail panel is open
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar && sidebar.classList.contains('store-focused')) return;
+
+      const mapBounds = map.getBounds();
+      const allVisible = getVisibleMarkers(); // markers in clusterGroup (post-filter)
+
+      const inViewport = allVisible.filter(marker => {
+        return mapBounds.contains(marker.getLatLng());
+      });
+
+      renderStoreListingsFromLayers(inViewport);
+
+      // Update the viewport count indicator
+      const countEl = document.getElementById('viewportCount');
+      if (countEl) {
+        const total = allVisible.length;
+        const shown = inViewport.length;
+        if (total === 0) {
+          countEl.textContent = '';
+        } else if (shown === total) {
+          countEl.textContent = `${total} store${total !== 1 ? 's' : ''}`;
+        } else {
+          countEl.textContent = `${shown} of ${total} stores in view`;
+        }
+      }
+      syncViewportCountVisibility();
+    }
+
+    map.on('moveend', () => {
+      clearTimeout(viewportDebounceTimer);
+      viewportDebounceTimer = setTimeout(updateSidebarForViewport, 80);
+    });
+
+    // wire store filter input (debounced)
+    const storeInput = document.getElementById('storeFilter');
+    let debounce;
+    storeInput.addEventListener('input', () => {
+      clearTimeout(debounce);
+
+      const query = (storeInput.value || '').trim();
+      const storeCheckboxesDiv = document.getElementById('storeCheckboxes');
+      if (storeCheckboxesDiv) {
+        storeCheckboxesDiv.style.display = query ? 'block' : 'none';
+      }
+
+      if (!query) {
+        userCheckedStores.clear();
+        document.querySelectorAll('#storeCheckboxes input[type="checkbox"]').forEach(cb => {
+          cb.checked = false;
+        });
+      }
+      debounce = setTimeout(() => applyFilter(), 250);
+    });
+
+    // Clear all filters button handler
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+
+    function clearAllFilters() {
+      showLoadingScreen(); // ← add this
+      // Reset text search
+      if (storeInput) storeInput.value = '';
+      // Clear user-selected store checkboxes
+      userCheckedStores.clear();
+      document.querySelectorAll('#storeCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+      const fd = document.getElementById('filterCategoryDealer');
+      const fb = document.getElementById('filterCategoryBoutique');
+      const fs = document.getElementById('filterCategoryService');
+      if (fd) fd.checked = false;
+      if (fb) fb.checked = false;
+      if (fs) fs.checked = false;
+      document.querySelectorAll('#brandCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+      // applyFilter() rebuilds the brand list correctly from premium filter brands only.
+      setTimeout(() => {       // ← wrap in setTimeout
+        applyFilter();
+        if (storeInput) storeInput.focus();
+        setNearMeStatus('Filters cleared.');
+      }, 0);
+    }
+
+
+    if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        clearAllFilters();
+      });
+    }
+
+    function showBanner(msg) {
+      const div = document.createElement('div');
+      div.className = 'banner';
+      div.textContent = msg;
+      document.body.appendChild(div);
+    }
+
+    function normalizeWebsiteUrl(val) {
+      if (!val) return '';
+
+      const raw = String(val).trim();
+      const cleaned = raw
+        .replace(/\\\//g, '/')
+        .replace(/^"+|"+$/g, '');
+
+      const lowered = cleaned.toLowerCase();
+      const bad = new Set([
+        '', '#', '/', 'n/a', 'na', 'none', 'null', 'not provided', 'not available'
+      ]);
+
+      if (bad.has(lowered)) return '';
+
+      if (/^https?:\/\//i.test(cleaned)) return cleaned;
+      if (cleaned.startsWith('www.')) return `https://${cleaned}`;
+    }
+
+    function isValidEmail(val) {
+      if (!val) return false;
+
+      const bad = new Set([
+        '', ' ', '-', '--', '---', '.', 'n/a', 'na', 'none', 'null',
+        'not provided', 'not available', 'no email', '0'
+      ]);
+
+      const cleaned = val.trim().toLowerCase();
+      if (bad.has(cleaned)) return false;
+
+      return cleaned.includes('@') && cleaned.includes('.');
+    }
+
+    function isValidPhone(val) {
+      if (!val) return false;
+
+      const cleaned = String(val).trim();
+      const lowered = cleaned.toLowerCase();
+
+      const bad = new Set([
+        '', ' ', '-', '--', '---', '.', 'n/a', 'na', 'none', 'null',
+        'not provided', 'not available', 'no phone', '0'
+      ]);
+
+      if (bad.has(lowered)) return false;
+
+      const digitsOnly = cleaned.replace(/\D/g, '');
+      return digitsOnly.length >= 10;
+    }
+
+    function formatPhoneHref(val) {
+      const raw = String(val || '').trim();
+      const hasPlus = raw.startsWith('+');
+      const digitsOnly = raw.replace(/\D/g, '');
+
+      if (!digitsOnly) return '#';
+
+      return hasPlus ? `tel:+${digitsOnly}` : `tel:${digitsOnly}`;
+    }
+
+    // --- Load data & render ---
+    // Step 1: load brands immediately (fast, small payload) so filters are ready
+    // Step 2: attempt geolocation; if granted, load only nearby stores first
+    // Step 3: if geolocation fails, fall back to a default nearby area (New York)
+
+    const NEARBY_RADIUS_MILES = 100; // smaller default near-me radius to reduce heavy wide-area queries
+    const AREA_FILTER_PAD = -0.12; // smaller than -0.05; keeps "Search this area" tighter and faster
+    const DEFAULT_NEARBY_FALLBACK = { lat: 40.7128, lng: -74.0060, zoom: 10, name: 'New York' };
+
+    function finishMapSetup(apiBrands) {
+      // Wire up controls that depend on allRows/allMarkers being populated
+      map.addLayer(clusterGroup);
+      map.addControl(new NearMeControl());
+
+      const detailCloseBtn = document.getElementById('detailCloseBtn');
+      if (detailCloseBtn) {
+        detailCloseBtn.addEventListener('click', () => setDetailPanelVisible(false));
+      }
+
+      if (apiBrands && apiBrands.length > 0) {
+        // API values can predate alias fixes (e.g. "BALL WATCH" vs "BALL") — normalize
+        // through the same overrides as row tokens so one brand renders one checkbox.
+        populateBrandSelect(new Set(apiBrands.map(normalizeBrandToken).filter(Boolean)));
+      }
+
+      ['filterCategoryDealer', 'filterCategoryBoutique', 'filterCategoryService'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => {
+          const anyChecked = ['filterCategoryDealer', 'filterCategoryBoutique', 'filterCategoryService']
+            .some(cid => document.getElementById(cid)?.checked);
+          if (anyChecked) {
+            // Save current view before the filter potentially pans the map
+            preCategoryFilterView = { center: map.getCenter(), zoom: map.getZoom() };
+          } else if (preCategoryFilterView) {
+            // All unchecked — restore the saved view
+            map.setView(preCategoryFilterView.center, preCategoryFilterView.zoom, { animate: true });
+            preCategoryFilterView = null;
+          }
+          // applyFilter is heavy at low zoom (global cluster rebuild). Show the
+          // loading spinner and yield first so the checkbox's own toggle paints
+          // (and its checked state commits) before applyFilter reads it.
+          withMapLoading(async () => { applyFilter(); });
+        });
+      });
+
+      document.getElementById('storeFilter').value = INITIAL.store;
+      if (INITIAL.brand) {
+        const b = INITIAL.brand.toLowerCase();
+        document.querySelectorAll('#brandCheckboxes input[type="checkbox"]').forEach(cb => {
+          if ((cb.value || '').toLowerCase().includes(b)) cb.checked = true;
+        });
+      }
+
+      rebuildStoreCheckboxes(allRows);
+      applyFilter();
+    }
+
+    function addRowsAndRefresh(rows) {
+      // Ingest new rows, re-add all passing markers to cluster, refresh sidebar
+      ingestRows(rows);
+      applyFilter();
+      if (bounds.isValid()) map.fitBounds(bounds.pad(0.2));
+    }
+
+    // Track whether we've already done a full load so brand-expand doesn't double-load
+    let _fullLoadStarted = false;
+    let _fullLoadComplete = false; // true once every row has been ingested (silent or not)
+    let _fullLoadPromise = null; // exposed so UI flows (e.g. Search this area) can await it
+
+    // Loads all locations. Pass { silent: true } when running in the background
+    // after a nearby load so the "near you" status message isn't overwritten
+    // and per-chunk re-renders don't thrash the cluster while user is browsing.
+    function expandToFullLoad({ silent = false } = {}) {
+      if (_fullLoadStarted) return _fullLoadPromise;
+      _fullLoadStarted = true;
+      if (!silent) setNearMeStatus('Loading all locations…');
+      _fullLoadPromise = (async () => {
+        try {
+          const rows = await loadLocationsFromApi();
+          const validRows = rows.filter(r => (r.Latitude ?? '') !== '' && (r.Longitude ?? '') !== '');
+          // Silent mode: larger chunks + no cluster updates — minimises background overhead
+          // while the user is browsing. Clusters refresh the next time the user interacts
+          // (Search this area, text search, filter change, etc.).
+          await ingestRowsChunked(validRows, silent ? null : () => applyFilter(), { silentChunkSize: silent });
+          _fullLoadComplete = true;
+          if (!silent) {
+            applyFilter();
+            setNearMeStatus('');
+          }
+        } catch (err) {
+          console.error('Full load failed:', err);
+          _fullLoadStarted = false; // allow retry on next interaction
+          if (!silent) setNearMeStatus('');
+        }
+      })();
+      return _fullLoadPromise;
+    }
+
+    async function loadNearbyForCenter(center, { zoom = 10, showUserPin = false, statusMessage = 'Loading nearby locations…' } = {}) {
+      if (showUserPin) showUserMarker(center);
+      map.flyTo(center, zoom, { animate: true, duration: 1.2 });
+
+      if (isAreaAlreadyLoaded(center.lat, center.lng, NEARBY_RADIUS_MILES)) {
+        applyFilter();
+        dismissLoadingScreen();
+        setNearMeStatus('');
+        return;
+      }
+
+      setNearMeStatus(statusMessage);
+      const nearbyRows = await loadLocationsNearby(center.lat, center.lng, NEARBY_RADIUS_MILES);
+      const validNearby = nearbyRows.filter(r => (r.Latitude ?? '') !== '' && (r.Longitude ?? '') !== '');
+      ingestRows(validNearby);
+      markAreaAsLoaded(center.lat, center.lng, NEARBY_RADIUS_MILES);
+      applyFilter();
+      dismissLoadingScreen(); // ← add here
+      setNearMeStatus('');
+    }
+
+    async function loadFallbackNearbyArea() {
+      const fallback = { lat: DEFAULT_NEARBY_FALLBACK.lat, lng: DEFAULT_NEARBY_FALLBACK.lng };
+      // Do NOT set cachedLatLng/lastLocationTime here — this is not the user's real location.
+      // Caching these coords would cause getUserLatLng to silently return New York for up to 5 minutes,
+      // making any subsequent locate attempt fly to the wrong city.
+      startupLocateAttempted = true;
+      await loadNearbyForCenter(fallback, {
+        zoom: DEFAULT_NEARBY_FALLBACK.zoom,
+        showUserPin: false,
+        statusMessage: `Couldn’t find your location — showing nearby stores in ${DEFAULT_NEARBY_FALLBACK.name}…`,
+      });
+    }
+
+    loadBrandsFromApi().then(async (apiBrands) => {
+      // Map + controls are ready immediately; markers come in shortly after
+      finishMapSetup(apiBrands);
+
+      // Try geolocation in all contexts, including iframes. If the parent iframe has
+      // allow="geolocation" it works normally; if denied, the timeout (15s) fires the
+      // error callback and we fall back to a regional view.
+      // In every path, the full world dataset is loaded silently in the background so
+      // "Search this area" works anywhere without extra API calls — stores are never
+      // rendered until the user explicitly triggers a filter or search.
+      const geoAvailable = canUseBrowserLocation();
+      if (!geoAvailable) {
+        // No geolocation API at all (very old browser) — focus on fallback region
+        // and silently load everything else in the background.
+        try {
+          await loadFallbackNearbyArea();
+        } catch (err) {
+          console.error('Fallback nearby load failed:', err);
+        }
+        expandToFullLoad({ silent: true });
+        return;
+      }
+
+      // Geolocation is available — try to get user position
+      setNearMeStatus('Locating…');
+      getUserLatLng(
+        async (ll) => {
+          // Got user location — fly to user immediately, then load nearby stores
+          cachedLatLng = ll;
+          lastLocationTime = Date.now();
+
+          try {
+            localStorage.setItem('watchdna_location_enabled', 'true');
+          } catch (e) { /* Safari ITP — non-fatal */ }
+
+          startupLocateAttempted = true;
+
+          try {
+            await loadNearbyForCenter(ll, { zoom: 10, showUserPin: true, statusMessage: 'Loading nearby locations…' });
+          } catch (err) {
+            console.error('Nearby load failed, falling back to default nearby area:', err);
+            try {
+              await loadFallbackNearbyArea();
+            } catch (fallbackErr) {
+              console.error('Fallback nearby load failed:', fallbackErr);
+            }
+          }
+
+          // Always silently load the full world dataset after the initial focused view,
+          // so "Search this area" works anywhere without triggering extra API calls.
+          expandToFullLoad({ silent: true });
+        },
+        async (_err) => {
+          // Geolocation denied or timed out — fall back to a default nearby area,
+          // then silently load everything else in the background.
+          try {
+            await loadFallbackNearbyArea();
+          } catch (fallbackErr) {
+            console.error('Fallback nearby load failed:', fallbackErr);
+          }
+          expandToFullLoad({ silent: true });
+        }
+      );
+    }).catch(async (err) => {
+      console.error('Error loading brands API:', err);
+      // Brands failed but we can still show the map — start with the regional fallback
+      // and silently load the full dataset in the background. Never render all stores
+      // at once in a zoomed-out view as that causes severe cluster lag.
+      finishMapSetup(null);
+      try {
+        await loadFallbackNearbyArea();
+      } catch (err2) {
+        console.error('Fallback nearby load failed after brands error:', err2);
+        dismissLoadingScreen();
+      }
+      expandToFullLoad({ silent: true });
+    });
+
+    (function () {
+      const btn = document.getElementById('mapToggleBtn');
+      const sidebar = document.getElementById('sidebar');
+      if (!btn || !sidebar) return;
+
+      btn.addEventListener('click', () => {
+        const isMapVisible = sidebar.classList.toggle('map-visible');
+        btn.textContent = isMapVisible ? '← View List' : 'View Map →';
+        btn.classList.toggle('list-mode', isMapVisible);
+        if (isMapVisible) {
+          setTimeout(() => map.invalidateSize({ animate: false }), 320);
+        }
+      });
+    })();
+
+    (function () {
+      const btn = document.getElementById('menuToggleBtn');
+      const sidebar = document.getElementById('sidebar');
+      const listBtn = document.getElementById('mapToggleBtn');
+      if (!btn || !sidebar || !listBtn) return;
+
+      function syncMenuBtn() {
+        const mapVisible = sidebar.classList.contains('map-visible');
+        btn.style.display = mapVisible ? 'flex' : 'none';
+      }
+
+      btn.addEventListener('click', () => {
+        sidebar.classList.remove('map-visible');
+        listBtn.textContent = 'View Map →';
+        listBtn.classList.remove('list-mode');
+        syncMenuBtn();
+      });
+
+      // Sync when the map toggle button is clicked
+      listBtn.addEventListener('click', () => {
+        setTimeout(syncMenuBtn, 0);
+      });
+
+      syncMenuBtn(); // set initial state on load
+    })();
+
+    window.WATCHDNA_TRANSLATION_PROXY_URL = "/api/translate";
+  </script>
+  <script src="translator.js"></script>
+  <script>
+    void window.WatchDnaLocale?.bootstrap({ locale: params.get('locale') || 'en' });
+  </script>
+</body>
+
+</html>

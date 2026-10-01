@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>WatchDNA Store Locator</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="watchdna-api-origin" content="" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- MapLibre GL -->
+  <link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
+
+  <!-- MapLibre GL Leaflet -->
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet/leaflet-maplibre-gl.js"></script>
+
+  <!-- PapaParse for CSV -->
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- MarkerCluster plugin -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Cormorant font -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div style="background:#1a202c;color:#e2e8f0;padding:10px 14px;text-align:center;font-size:14px;">
+    Legacy prototype — use <code>index.html</code> for the production store locator. Premium state is matched by <strong>Handle</strong> from the locations API when available.
+  </div>
+  <header id="sidebar">
+
+    <div id="top">
+      <div id="inner">
+        <h2>WatchDNA's Network | Find jewellers in your area</h2>
+        <p>As your trusted directory for brands and authorized dealers, we make it easy to find and reach out to
+          Authorized Dealers. (Please note that only select verified (authorized) dealers will be featured under our brand
+          filters.)
+        </p>
+      </div>
+    </div>
+
+    <button id="hamburger" aria-expanded="false" aria-controls="filtersPanel" title="Show filters">
+      ☰ Filter
+    </button>
+    <span id="nearMeStatus" style="font-size:.9rem; opacity:.8;"></span>
+    <div id="filtersPanel" class="filters-panel" hidden>
+      <label for="storeFilter"><strong>Filter by store:</strong></label>
+      <input id="storeFilter" type="search" placeholder="Search By Store Name" />
+      <div id="storeCheckboxes">
+        <!-- Store name checkboxes (hidden until user searches) -->
+      </div>
+      <label for="brandCheckboxes"><strong>Filter by Brand:</strong></label>
+      <div id="brandCheckboxes">
+        <!-- Brand checkboxes inserted here -->
+      </div>
+      <label for="typeCheckboxes"><strong>Filter By Type:</strong></label>
+      <div id="typeCheckboxes">
+        <label>
+          <input type="checkbox" value="watch-brands" />
+          <span>Watch Brands</span>
+        </label>
+        <label>
+          <input type="checkbox" value="services-center" />
+          <span>Services Center</span>
+        </label>
+        <label>
+          <input type="checkbox" value="accessory-brands" />
+          <span>Accessory brands</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Store detail panel (hidden by default)-->
+     <div id="storeDetailPanel" class="store-detail hidden" aria-hidden="true">
+      <div class="store-detail__top">
+        <div class="store-detail__title" id="detailName">Store Name</div>
+        <button class="store-detail__close" id="detailCloseBtn" aria-label="Close">×</button>
+      </div>
+
+      <div class="store-detail__image" id="detailImage" role="img" aria-label="Store image placeholder">
+        <div class="store-detail__imageText">Image placeholder</div>
+      </div>
+
+      <div class="store-detail__actions">
+        <a id="detailDirectionsBtn" class="store-detail__btn" href="#" target="_blank" rel="noopener">Directions</a>
+        <a id="detailPhoneBtn" class="store-detail__btn" href="#">Call</a>
+        <a id="detailConnectBtn" class="store-detail__btn" href="#">Connect</a>
+      </div>
+
+      <div class="store-detail__section">
+        <div class="store-detail__label">Address</div>
+        <div class="store-detail__value" id="detailAddress"></div>
+      </div>
+
+      <div class="store-detail__section">
+        <div class="store-detail__label">Phone</div>
+        <div class="store-detail__value" id="detailPhone"></div>
+      </div>
+
+      <div class="store-detail__section" id="detailAboutSection">
+        <div class="store-detail__label">Information</div>
+        <div class="store-detail__value" id="detailAbout"></div>
+      </div>
+
+      <div class="store-detail__section" id="detailBrandsSection">
+        <div class="store-detail__label">Brands</div>
+        <div class="store-detail__value" id="detailBrands"></div>
+      </div>
+
+      </div>
+
+    <div id="storeListContainer">
+      <div id="storeListings"></div>
+    </div>
+
+    <!-- Commented out, not deleted because the specific page on the WatchDNA site may or may not be updated or removed. -->
+     <!-- Until we know what the plan is, the code will not be deleted. -->
+    <!-- <div id="footer">
+      <a href="https://watchdna.com/tools/storelocator/directory">Store Directory</a>
+    </div> -->
+
+  </header>
+
+  <div id="map"></div>
+
+  <script>
+    // --- Map bootstrap ---
+    // NEW MAP THEME CODE
+    const map = L.map('map', {maxZoom: 19}).setView([20, 0], 2); // Using the longitude, latitude, and zoom level from original map
+    L.maplibreGL({
+      style: 'https://tiles.openfreemap.org/styles/bright',
+    }).addTo(map);
+
+    // Removes 'Leaflet' from the attribution; it's not necessary to include it because the requirements of the MIT License
+    // are already fulfilled within the Leaflet source code we are using.
+    map.attributionControl.setPrefix('');
+
+    // Default zoom out logic. Will be used if user did not use Near Me features
+    const originalCenter = map.getCenter();
+    const originalZoom = map.getZoom();
+
+    map.on('popupclose', () => {
+      if (radiusCircle) {
+        setDetailPanelVisible(false);
+        map.fitBounds(radiusCircle.getBounds().pad(0.2));
+      } else {
+        resetFocusedStore();
+      }
+    });
+
+    // Should help with location retention issues with Near Me feature
+    let cachedLatLng = null;
+    let lastLocationTime = 0;
+
+    function getUserLatLng(success, failure) {
+      const rightNow = Date.now();
+      //Going to reuse the location we've stored already if it's less than 5 minutes old
+      if(cachedLatLng && (rightNow - lastLocationTime < 300000)) {
+        success(cachedLatLng);
+        return;
+      }
+      // User did not allow browser/application to use their location
+      if(!navigator.geolocation) {
+        failure({ code: 0 });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+          cachedLatLng = latlng;
+          lastLocationTime = Date.now();
+          success(latlng); // Return the user's location to wherever called this function
+        },
+        (err) => {
+          // Retry once with relaxed settings to see if it resolves any issues
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+              cachedLatLng = latlng;
+              lastLocationTime = Date.now();
+              success(latlng);
+            },
+            failure,
+            {
+              enableHighAccuracy: false,
+              timeout: 15000,
+              maximumAge: 300000
+            }
+          );
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 15000,
+          maximumAge: 300000      // Allowing cached reuse
+        }
+      );
+    }
+
+    // --- URL parameter helpers (CSV + initial filters) ---
+    const params = new URLSearchParams(window.location.search);
+    const INITIAL = {
+      brand: params.get('brand') || '',
+      type: params.get('type') || '',
+      store: params.get('store') || ''
+    };
+    console.log('[proto] initial filters:', INITIAL);
+
+    // Premium store names fetched from the admin API
+    /** handle (trimmed) -> true when Location.isPremium from API */
+    let PREMIUM_BY_HANDLE = new Map();
+
+    function readApiOrigin() {
+      var m = document.querySelector('meta[name="watchdna-api-origin"]');
+      var c = m && m.getAttribute('content');
+      if (c && String(c).trim()) return String(c).trim().replace(/\/$/, '');
+      return 'https://backend-production-033e.up.railway.app';
+    }
+
+    // --- CSV loader (with cache-busting to avoid stale results) ---
+    function loadCSV(path) {
+      const url = `${path}?v=${Date.now()}`;
+      return new Promise((resolve, reject) => {
+        Papa.parse(url, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: res => resolve(res.data),
+          error: err => reject(err)
+        });
+      });
+    }
+
+    // --- small hamburger toggle (left) ---
+    (function () {
+      const btn = document.getElementById('hamburger');
+      const panel = document.getElementById('filtersPanel');
+      const storeListContainer = document.getElementById('storeListContainer');
+
+      if (!btn || !panel || !storeListContainer) {
+        console.warn('Toggle init aborted, missing elements:', { btn, panel, storeListContainer });
+        return;
+      }
+
+      function setStoreListHidden(hidden) {
+        // keep a class for CSS transitions or style hooks
+        if (hidden) {
+          storeListContainer.classList.add('hidden');
+          //set inline style to be extra sure
+          storeListContainer.style.display = 'none';
+        }
+        else {
+          storeListContainer.classList.remove('hidden');
+          storeListContainer.style.display = '';
+        }
+        console.log('[storeList] set hidden =', hidden, 'classList:', storeListContainer.className);
+      }
+
+      btn.addEventListener('click', (e) => {
+        const wasHidden = panel.hasAttribute('hidden');
+
+        if (wasHidden) {
+          //opening the Filters panel
+          panel.removeAttribute('hidden');
+          btn.setAttribute('aria-expanded', 'true');
+          setStoreListHidden(true); //hide the store list
+        }
+        else {
+          //closing the Filters panel
+          panel.setAttribute('hidden', '');
+          btn.setAttribute('aria-expanded', 'false');
+          setStoreListHidden(false); //show the store list
+          // Do not clear the store search here; preserve user input when they close the panel.
+        }
+        e.stopPropagation();
+      });
+      document.addEventListener('click', (ev) => {
+        if (!panel.hasAttribute('hidden') && !panel.contains(ev.target) && ev.target !== btn) {
+          panel.setAttribute('hidden', '');
+          btn.setAttribute('aria-expanded', 'false');
+          setStoreListHidden(false);
+          // Clear the store search when closing the panel by clicking outside
+          const storeInput = document.getElementById('storeFilter');
+          // Leave the store search value intact when closing the panel by clicking outside.
+          console.log('[document] closed filters by click outside');
+        }
+      });
+    })();
+
+    // --- Clustering & filtering state ---
+    const clusterGroup = L.markerClusterGroup({
+      spiderfyOnMaxZoom: false,
+      zoomToBoundsOnClick: true,
+      showCoverageOnHover: false,
+      iconCreateFunction: function (cluster) {
+        const count = cluster.getChildCount();
+        let size = 30;
+
+        if (count < 10) {
+          size = 30; 
+        } else if (count < 100) {
+          size = 40;
+        } else {
+          size = 50;
+        }
+        return L.divIcon({
+          html: `
+          <div class="cluster-outer">
+            <div class="cluster-inner">${count}</div>
+          </div>`,
+          className: 'custom-cluster',
+          iconSize: L.point(size, size)
+        });
+      }
+    });
+    const bounds = L.latLngBounds();
+    let allRows = [];
+    let allMarkers = [];
+    // Keep track of stores the user has explicitly checked (lowercased names)
+    let userCheckedStores = new Set();
+
+    function createStoreIcon(iconUrl) {
+      return L.icon({
+        iconUrl,
+        iconSize: [34, 48],
+        iconAnchor: [17, 48],
+        popupAnchor: [0, -42]
+      });
+    }
+
+    const markerIcons = {
+      retailer: {
+        nonPremium: createStoreIcon('./imgs/pins_np2.png'),
+        premiumBrandOnly: createStoreIcon('./imgs/pins_pb.png'),
+        premium: createStoreIcon('./imgs/pins_ap.png')
+      },
+      serviceCenter: {
+        nonPremium: createStoreIcon('./imgs/pins_sc_np.png'),
+        premiumBrandOnly: createStoreIcon('./imgs/pins_sc_pb.png'),
+        premium: createStoreIcon('./imgs/pins_sc_ap.png')
+      }
+    };
+
+    /** Avoid "Dubai, Dubai" when city and state/emirate repeat the same label (common in UAE data). */
+    function pushCityStateDeduped(arr, cityRaw, stateRaw) {
+      const city = (cityRaw || '').trim();
+      const state = (stateRaw || '').trim();
+      if (city) arr.push(city);
+      if (state && (!city || state.toLowerCase() !== city.toLowerCase())) arr.push(state);
+    }
+
+    function buildPopup(row) {
+      const addrParts = [];
+      if (row['Address Line 1']) addrParts.push(row['Address Line 1']);
+      pushCityStateDeduped(addrParts, row['City'], row['State/Province/Region']);
+      if (row['Country']) addrParts.push(row['Country']);
+      const addr = addrParts.join(', ');
+      const phone = row['Phone'] ? `<br>${row['Phone']}` : '';
+      
+      // Get brands from Brands column first, fallback to Custom Brands if empty
+      let brands = (row['Brands'] || '').trim();
+      if (!brands && row['Custom Brands']) {
+        // Extract brand names from HTML Custom Brands column
+        const customBrandsHtml = row['Custom Brands'];
+        const brandMatches = customBrandsHtml.match(/>([^<]+)<\/A>/gi) || [];
+        brands = brandMatches.map(m => m.replace(/>|<\/A>/gi, '').trim()).filter(Boolean).join(', ');
+      }
+      
+      const displayBrandsHTML = getDisplayBrandsHTMLForRow(row);
+      const brandsDisplay = displayBrandsHTML
+      ? `<br><br><strong>Brands:</strong> ${displayBrandsHTML}`
+      : '';
+      return `<div class="popup"><b>${row['Name'] || ''}</b><br>${addr}${phone}${brandsDisplay}</div>`;
+    }
+    
+    function buildFullAddress(row) {
+      const line1 = (row['Address Line 1'] || '').trim();
+      const line2 = (row['Address Line 2'] || '').trim();
+      const city = (row['City'] || '').trim();
+      const state = (row['State/Province/Region'] || '').trim();
+      const zip = (row['Zip/Postal Code'] || '').trim();
+      const country = (row['Country'] || '').trim();
+      
+      const parts = [];
+      if (line1) parts.push(line1);
+      if (line2) parts.push(line2);
+      
+      const cityLineParts = [];
+      pushCityStateDeduped(cityLineParts, city, state);
+      if (zip) cityLineParts.push(zip);
+      const cityLine = cityLineParts.join(', ');
+      if (cityLine) parts.push(cityLine);
+      if (country) parts.push(country);
+      
+      return parts.join('\n');
+    }
+
+    // Brand level paid visibility (demo)
+    // A brand can approve up to 'maxApproved' locations to show that brand even if the location isnt verified
+     const BRAND_VISIBILITY_CONFIG = {
+      "OMEGA": {
+        maxApproved: 5,
+        approvedHandles: ["7426", "6416", "3229", "6917170001", "O1825152"]
+      }
+    };
+
+    // Brands that should show a verified indicator (demo list)
+    const VERIFIED_BRANDS = new Set([
+      "OMEGA"
+    ]);
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+    }
+
+    // Returns array of visible brand names for a row
+    function getVisibleBrandsList(row) {
+      const fullBrands = extractBrandsText(row);
+      const list = fullBrands
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+      
+      if (row._isPremium) return list;
+
+      // Unverified: only show brands that approved this location
+      return list.filter(b => isLocationApprovedForBrand(row, b));
+    }
+
+    // Plain string used for filtering + any logic that expects commas
+    function getDisplayBrandsForRow(row) {
+      return getVisibleBrandsList(row).join(", ");
+    }
+
+    // HTML string used for UI display (adds verified checkmark)
+    function getDisplayBrandsHTMLForRow(row) {
+      const list = getVisibleBrandsList(row);
+      const brandLinks = extractBrandLinksMap(row);
+
+      if (!list.length) return "";
+
+      return list.map(b => {
+        const clean = b.trim();
+        const key = clean.toUpperCase();
+        const isVerifiedBrand = VERIFIED_BRANDS.has(key);
+        const check = isVerifiedBrand ? ` <span class="verified-check" title="Verified brand">✓</span>` : "";
+        const href = brandLinks.get(key);
+
+        if (isValidBrandHref(href)) {
+          return `<a class="brand-pill brand-pill--link" href="${escapeHtml(buildBrandHref(href))}" target="_blank" rel="noopener">${escapeHtml(clean)}${check}</a>`;
+        }
+
+        return `<span class="brand-pill">${escapeHtml(clean)}${check}</span>`;
+      }).join(" ");
+    }
+
+    function normalizeKey(val) {
+      return String(val || "").trim().toLowerCase();
+    }
+
+    function isServiceCenterRow(row) {
+      const text = [
+        row['Name'] || '',
+        row['Page Description'] || '',
+        row['Page Title'] || '',
+        row['Meta Description'] || '',
+        row['Custom Brands'] || '',
+        row[' Tags'] || ''
+      ].join(' ').toLowerCase();
+
+      return /service center|customer service|watch service|watch repair|repair specialists|repair|service\b/.test(text);
+    }
+
+    function isPremiumBrandOnlyRow(row) {
+      return !row._isPremium && getVisibleBrandsList(row).length > 0;
+    }
+
+    function getMarkerCategory(row) {
+      const storeKind = isServiceCenterRow(row) ? 'serviceCenter' : 'retailer';
+
+      let tier = 'nonPremium';
+      if (row._isPremium) {
+        tier = 'premium';
+      } else if (isPremiumBrandOnlyRow(row)) {
+        tier = 'premiumBrandOnly';
+      }
+
+      return { storeKind, tier };
+    }
+
+    function getMarkerIconForRow(row) {
+      const { storeKind, tier } = getMarkerCategory(row);
+      return markerIcons[storeKind][tier];
+    }
+
+    function isLocationApprovedForBrand(row, brandName) {
+      const cfg = BRAND_VISIBILITY_CONFIG[String(brandName || "").toUpperCase()];
+      if (!cfg) return false;
+
+      const maxApproved = Number(cfg.maxApproved || 0);
+      const approvedCount =
+        (cfg.approvedHandles?.length || 0) + (cfg.approvedNames?.length || 0);
+      
+      if (maxApproved > 0 && approvedCount > maxApproved) {
+      }
+
+      const handle = normalizeKey(row["Handle"]);
+      const name = normalizeKey(row["Name"]);
+
+      const handleApproved = (cfg.approvedHandles || [])
+        .slice(0, maxApproved || undefined)
+        .some(h => normalizeKey(h) === handle);
+
+      const nameApproved = (cfg.approvedNames || [])
+        .slice(0, maxApproved || undefined)
+        .some(n => normalizeKey(n) === name);
+
+      return handleApproved || nameApproved;
+    }
+
+    function getDisplayBrandsForRow(row) {
+      const fullBrands = extractBrandsText(row);
+      const list = fullBrands
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
+
+      if (row._isPremium) return list.join(", ");
+
+      // Unverified: only show brands that approved this location
+      const allowed = list.filter(b => isLocationApprovedForBrand(row, b));
+      return allowed.join(", ");
+    }
+
+    
+    function extractBrandsText(row) {
+      let brands = (row['Brands'] || '').trim();
+      
+      if (!brands && row['Custom Brands']) {
+        const customBrandsHtml = row['Custom Brands'];
+        const brandMatches = customBrandsHtml.match(/>([^<]+)<\/A>/gi) || [];
+        brands = brandMatches
+        .map(m => m.replace(/>|<\/A>/gi, '').trim())
+        .filter(Boolean)
+        .join(', ');
+      }
+      
+      return brands;
+    }
+
+    function extractBrandLinksMap(row) {
+    const map = new Map();
+    const html = String(row['Custom Brands'] || '');
+
+    if (!html) return map;
+
+    const regex = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([^<]+)<\/a>/gi;
+    let match;
+
+    while ((match = regex.exec(html)) !== null) {
+      const href = String(match[1] || '').trim();
+      const label = String(match[2] || '').trim();
+
+      if (label && href && !map.has(label.toUpperCase())) {
+        map.set(label.toUpperCase(), href);
+        }
+      }
+
+      return map;
+    }
+
+    function isValidBrandHref(href) {
+      if (!href) return false;
+
+      const cleaned = String(href).trim().toLowerCase();
+      const bad = new Set([
+        '', '#', '/', 'n/a', 'na', 'none', 'null', 'not available'
+    ]);
+
+    if (bad.has(cleaned)) return false;
+
+    return /^https?:\/\//i.test(href) || href.startsWith('/');
+    }
+
+    function buildBrandHref(href) {
+      const raw = String(href || '').trim();
+      if (!raw) return '#';
+
+      if (/^https?:\/\//i.test(raw)) return raw;
+      if (raw.startsWith('/')) return raw;
+
+      return '#';
+    }
+
+    function setDetailPanelVisible(visible) {
+      const sidebar = document.getElementById('sidebar');
+      const panel = document.getElementById('storeDetailPanel');
+      const listContainer = document.getElementById('storeListContainer');
+      if (!sidebar || !panel || !listContainer) return;
+
+      if (visible) {
+      sidebar.classList.add('store-focused');
+      panel.classList.remove('hidden');
+      panel.setAttribute('aria-hidden', 'false');
+      //listContainer.classList.add('hidden');
+      //listContainer.style.display = 'none';
+    } else {
+      sidebar.classList.remove('store-focused');
+      panel.classList.add('hidden');
+      panel.setAttribute('aria-hidden', 'true');
+      //listContainer.classList.remove('hidden');
+      //listContainer.style.display = '';
+    }
+  }
+
+  function openStoreDetail(row, marker) {
+    const nameEl = document.getElementById('detailName');
+    const addressEl = document.getElementById('detailAddress');
+    const phoneEl = document.getElementById('detailPhone');
+    const brandsEl = document.getElementById('detailBrands');
+    const brandsSectionEl = document.getElementById('detailBrandsSection');
+    const imageEl = document.getElementById('detailImage');
+    const directionsBtn = document.getElementById('detailDirectionsBtn');
+    const phoneBtn = document.getElementById('detailPhoneBtn');
+    const connectBtn = document.getElementById('detailConnectBtn');
+    const aboutSectionEl = document.getElementById('detailAboutSection');
+    const aboutEl = document.getElementById('detailAbout');
+
+    const name = (row['Name'] || 'Unnamed').trim();
+    const address = buildFullAddress(row);
+    const phone = (row['Phone'] || '').trim();
+    const brandsText = getDisplayBrandsForRow(row);
+    const brandsHTML = getDisplayBrandsHTMLForRow(row);
+    const hasVisibleBrands = !!brandsText;
+
+
+    if (nameEl) nameEl.textContent = name;
+
+    if (addressEl) {
+      addressEl.textContent = address || 'Not provided';
+      addressEl.style.whiteSpace = 'pre-line';
+    }
+
+    if (phoneEl) {
+      if (isValidPhone(phone)) {
+        phoneEl.innerHTML = `<a href="${formatPhoneHref(phone)}">${phone}</a>`;
+      } else {
+        phoneEl.textContent = 'Not provided';
+      }
+    }
+    const isVerified = !!row._isPremium;
+
+    const aboutText =
+      "We are building a vibrant community where watch enthusiasts can discover new brands and connect with passionate jewellers who value both timepieces and the stories behind them. As your trusted directory for brands and authorized dealers, we make it easy to find and reach out to reputable retailers. Feel free to contact your authorized dealer for any questions regarding the brands they carry.";
+
+    if (aboutSectionEl) {
+      aboutSectionEl.style.display = isVerified ? "" : "none";
+    }
+
+    if (aboutEl) {
+      aboutEl.textContent = isVerified ? aboutText : "";
+    }
+
+    // Image: show only for premium/verified
+    if (imageEl) {
+      if (isVerified) {
+        imageEl.style.display = '';
+        const imageUrl = (row['Image URL'] || '').trim();
+
+        if (imageUrl) {
+          imageEl.style.backgroundImage = `url('${imageUrl}')`;
+          imageEl.style.backgroundSize = 'cover';
+          imageEl.style.backgroundPosition = 'center';
+
+          const imageText = imageEl.querySelector('.store-detail__imageText');
+          if (imageText) imageText.style.display = 'none';
+        } else {
+          imageEl.style.backgroundImage = '';
+          const imageText = imageEl.querySelector('.store-detail__imageText');
+          if (imageText) imageText.style.display = '';
+        }
+      } else {
+        imageEl.style.backgroundImage = '';
+        imageEl.style.display = 'none';
+      }
+    }
+
+    if (brandsSectionEl) {
+      // Verified: show; Unverified: only show if a brand approved visibility
+      brandsSectionEl.style.display = (isVerified || hasVisibleBrands) ? '' : 'none';
+    }
+
+    if (brandsEl) {
+      if (isVerified) brandsEl.innerHTML = brandsHTML || 'Not provided';
+      else brandsEl.innerHTML = hasVisibleBrands ? brandsHTML : '';
+    }
+
+    
+
+    // Directions: use lat/lng if available, otherwise fall back to address
+    const lat = parseFloat(String(row.Latitude || '').trim());
+    const lon = parseFloat(String(row.Longitude || '').trim());
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
+
+    if (directionsBtn) {
+    const q = hasCoords ? `${lat},${lon}` : encodeURIComponent(address.replace(/\n/g, ', '));
+    directionsBtn.href = hasCoords
+      ? `https://www.google.com/maps/search/?api=1&query=${q}`
+      : `https://www.google.com/maps/search/?api=1&query=${q}`;
+    }
+
+    if (phoneBtn) {
+      if (isValidPhone(phone)) {
+        phoneBtn.href = formatPhoneHref(phone);
+        phoneBtn.textContent = 'Call';
+        phoneBtn.style.opacity = '1';
+        phoneBtn.style.pointerEvents = 'auto';
+        phoneBtn.removeAttribute('aria-disabled');
+      } else {
+        phoneBtn.href = '#';
+        phoneBtn.textContent = 'Call';
+        phoneBtn.style.opacity = '0.5';
+        phoneBtn.style.pointerEvents = 'none';
+        phoneBtn.setAttribute('aria-disabled', 'true');
+      }
+    }
+
+    // Connect: prefer email; otherwise disable
+    const email = (row['Email'] || '').trim();
+    if (connectBtn) {
+      if (isValidEmail(email)) {
+        connectBtn.href = `mailto:${email}`;
+        connectBtn.textContent = 'Connect';
+        connectBtn.style.opacity = '1';
+        connectBtn.style.pointerEvents = 'auto';
+      } else {
+        connectBtn.href = '#';
+        connectBtn.textContent = 'Connect';
+        connectBtn.style.opacity = '0.5';
+        connectBtn.style.pointerEvents = 'none';
+      }
+    }
+    
+    setDetailPanelVisible(true);
+
+    // Optional: keep the map movement consistent
+    if (marker && hasCoords) {
+      map.flyTo([lat, lon], 14, { animate: true, duration: 2.5 });
+    }
+  }
+
+  //Zooms the map out to full view
+  function resetFocusedStore() {
+    setDetailPanelVisible(false);
+
+    // Zoom back out to the original field of view
+    if(!radiusCircle && originalCenter && originalZoom !== undefined) {
+      map.flyTo(originalCenter, originalZoom, {
+        animate: true,
+        duration: 2.5
+      });
+    }
+  }
+
+  // When the close store detail button is clicked, it will close itself, the popup, and zoom the map back out to full view
+  const closeBtn = document.getElementById('detailCloseBtn');
+  if(closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      // Hide the store detail panel (mainly for if radiusCircle is true)
+      setDetailPanelVisible(false);
+
+      // Close the popup on the associated map marker
+      if (focusedMarker) {
+        focusedMarker.closePopup();
+        focusedMarker = null; 
+      }
+
+      // Zoom out to the appropriate level
+      if (radiusCircle) {
+        // Near Me/Within Radius has been used
+        map.fitBounds(radiusCircle.getBounds().pad(0.2));
+      } else {
+        // Default zoom
+        resetFocusedStore();
+      }
+    });
+  }
+
+    function rebuildStoreCheckboxes(rowsForList) {
+      // rowsForList should be the rows after applying non-checkbox filters
+      const storeCheckboxesDiv = document.getElementById('storeCheckboxes');
+
+      // start fresh; by default checkboxes should be unchecked so the user
+      // explicitly selects any stores they want
+      storeCheckboxesDiv.innerHTML = '';
+
+      const storeNames = [...new Set(rowsForList.map(r => (r['Name'] || '').trim()).filter(Boolean))].sort();
+
+      const premiumOnly = false; // premium-only filter disabled (UI removed)
+
+      // Remove any previously-checked stores that are no longer present
+      const storeNameSet = new Set(storeNames.map(s => s.toLowerCase()));
+      Array.from(userCheckedStores).forEach(s => { if (!storeNameSet.has(s)) userCheckedStores.delete(s); });
+
+      storeNames.forEach(name => {
+        const rowMatch = rowsForList.find(r => (r['Name'] || '').trim() === name);
+
+        // Skip non-premium rows entirely in checkbox list
+        if (premiumOnly && !rowMatch?._isPremium) return;
+
+        const label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '8px';
+        label.style.padding = '2px 0';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = name;
+        // restore user selection if previously checked
+        cb.checked = userCheckedStores.has(name.toLowerCase());
+        cb.addEventListener('change', () => {
+          const val = cb.value.toLowerCase();
+          if (cb.checked) userCheckedStores.add(val); else userCheckedStores.delete(val);
+          applyFilter();
+        });
+
+        const span = document.createElement('span');
+        span.textContent = name;
+        span.style.userSelect = 'none';
+
+        label.appendChild(cb);
+        label.appendChild(span);
+        storeCheckboxesDiv.appendChild(label);
+      });
+    }
+
+    // Sync the "Filter by store" checkbox list with the rows that passed ALL filters
+    function syncStoreCheckboxes(filteredRows) {
+      const allowed = new Set(
+        filteredRows.map(r => (r['Name'] || '').trim().toLowerCase())
+      );
+
+      const q = (document.getElementById('storeFilter').value || '')
+        .trim().toLowerCase();
+
+      // Walk all checkbox rows in the list
+      document.querySelectorAll('#storeCheckboxes label').forEach(label => {
+        const cb = label.querySelector('input[type="checkbox"]');
+        const name = (label.querySelector('span')?.textContent || cb.value || '')
+          .trim().toLowerCase();
+
+        const inFiltered = allowed.has(name);
+
+        // Show/hide entries that are not part of the current filtered set
+        label.style.display = inFiltered ? '' : 'none';
+
+        // Do not auto-check matches when the user types — leave checked state
+        // under user control. If an item is no longer in the filtered set,
+        // uncheck it and remove it from the user's selection set.
+        if (!inFiltered) {
+          cb.checked = false;
+          userCheckedStores.delete(cb.value.toLowerCase());
+        }
+      });
+    }
+
+    function applyFilter() {
+      clusterGroup.clearLayers();
+      // Gather selected brands from checkbox list (if any)
+      const selectedBrandEls = document.querySelectorAll('#brandCheckboxes input[type="checkbox"]:checked');
+      const brandSet = new Set(Array.from(selectedBrandEls).map(el => (el.value || '').toUpperCase().trim()));
+      const brandFilterActive = brandSet.size > 0;
+      const storeInput = (document.getElementById('storeFilter').value || '').trim().toLowerCase();
+      // Premium-only filter disabled (UI removed)
+      const premiumOnly = false;
+
+      const baseRows = [];
+      allMarkers.forEach(({ row }) => {
+        let passes = true;
+
+        // Brands column + Custom Brands HTML (parity with extractBrandsText / detail panel)
+        if (brandFilterActive) {
+          const brands = (extractBrandsText(row) || '')
+            .toUpperCase()
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean);
+          passes = brands.some(b => brandSet.has(b));
+        }
+
+        // store text search - check multiple fields (Name, City, State, Address, Country)
+        if (passes && storeInput) {
+          if (storeInput.startsWith('handle:')) {
+            const h = storeInput.split(':', 2)[1] || '';
+            passes = (String(row['Handle'] || '') === h);
+          } else {
+            const searchFields = [
+              row['Name'] || '',
+              row['City'] || '',
+              row['State/Province/Region'] || '',
+              row['Address Line 1'] || '',
+              row['Address Line 2'] || '',
+              row['Country'] || '',
+              row['Postal/ZIP Code'] || ''
+            ].map(f => String(f).toLowerCase());
+            passes = searchFields.some(field => field.includes(storeInput));
+          }
+        }
+
+        // type filter
+        const selectedTypes = Array.from(document.querySelectorAll('#typeCheckboxes input[type="checkbox"]:checked')).map(cb => cb.value);
+        if (passes && selectedTypes.length > 0) {
+          passes = selectedTypes.includes(row._type);
+        }
+
+        // Premium-only logic
+        if (passes && premiumOnly) {
+          passes = row._isPremium === true;
+        }
+
+        if (passes) baseRows.push(row);
+      });
+
+      rebuildStoreCheckboxes(baseRows);
+      syncStoreCheckboxes(baseRows);
+
+      // Show checkboxes only when the user has entered a store search
+      try {
+        const storeCheckboxesDiv = document.getElementById('storeCheckboxes');
+        if (storeCheckboxesDiv) {
+          storeCheckboxesDiv.style.display = storeInput && storeInput.trim() ? 'block' : 'none';
+        }
+      } catch (e) {
+        console.warn('Could not toggle storeCheckboxes visibility', e);
+      }
+
+
+      const checkedStores = Array.from(document.querySelectorAll('#storeCheckboxes input[type="checkbox"]:checked')).map(cb => cb.value.toLowerCase());
+
+      const baseNameSet = new Set(baseRows.map(r => (r['Name'] || '').trim().toLowerCase()));
+
+      allMarkers.forEach(({ row, marker }) => {
+        const nameLower = (row['Name'] || '').trim().toLowerCase();
+        let show = baseNameSet.has(nameLower); // only show if it matched non-checkbox filters
+
+        if (show && checkedStores.length > 0) {
+          show = checkedStores.includes(nameLower);
+        }
+
+        if (show) clusterGroup.addLayer(marker);
+      });
+
+      renderStoreListingsFromLayers(getVisibleMarkers());
+    }
+
+    // --- Near Me radius filter ---
+
+    let radiusCircle = null;
+
+    function meters(mi) { return mi * 1609.344; }
+
+    function applyRadiusToCurrent(centerLL, radiusMeters) {
+      if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
+      radiusCircle = L.circle(centerLL, { radius: radiusMeters, fillOpacity: 0.07 }).addTo(map);
+
+      // Start from your existing filtered set
+      applyFilter();
+
+      // Filter only visible markers within the radius
+      const current = clusterGroup.getLayers();
+      clusterGroup.clearLayers();
+      let kept = 0;
+      current.forEach(m => {
+        const d = map.distance(centerLL, m.getLatLng());
+        if (d <= radiusMeters) { clusterGroup.addLayer(m); kept++; }
+      });
+
+      setNearMeStatus(`Showing ${kept} location(s) within ${(radiusMeters / 1609.344).toFixed(0)} mi`);
+      if (kept > 0) map.fitBounds(radiusCircle.getBounds().pad(0.2));
+
+      renderStoreListingsFromLayers(getVisibleMarkers());
+    }
+
+    function locateAndFilterWithinRadius() {
+      if (!navigator.geolocation) { setNearMeStatus('Geolocation not supported.'); return; }
+      setNearMeStatus('Locating…');
+      getUserLatLng(
+        (ll) => {
+          // getUserLatLng returns the users coordinates, so we can just immediately use it
+          showUserMarker(ll);
+          const mi = parseFloat(document.getElementById('nearMeRadius').value || '10');
+              applyRadiusToCurrent(ll, meters(mi));
+        },
+        (err) => {
+          // Error handling to see what went wrong
+          const m = {
+            1: 'Permission Denied.',
+            2: 'Position Unavailable.',
+            3: 'Request Timed Out.'
+          };
+          setNearMeStatus(m[err.code] || 'Unable to get location.');
+        }
+      );
+    }
+
+    // --- Near Me helpers ---
+    let userMarker = null
+    let nearestLine = null;
+    let nearestMarker = null;
+
+    function setNearMeStatus(msg) {
+      const el = document.getElementById('nearMeStatus');
+      if (el) el.textContent = msg || '';
+    }
+
+    function toLatLng(lat, lng) { return L.latLng(lat, lng); }
+
+    function findNearest(targetLatLng) {
+      let best = null; // { dist, row, marker }
+      allMarkers.forEach(({ row, marker }) => {
+        const d = map.distance(targetLatLng, marker.getLatLng());
+        if (!best || d < best.dist) best = { dist: d, row, marker };
+      });
+      return best;
+    }
+
+    function emphasizeNearest(userLL, best) {
+      if (nearestLine) { map.removeLayer(nearestLine); nearestLine = null; }
+      if (nearestMarker) { nearestMarker.setZIndexOffset(0); nearestMarker = null; }
+      if (!best) { setNearMeStatus('No locations loaded.'); return; }
+
+      nearestMarker = best.marker;
+      const row = best.row || getRowForMarker(nearestMarker);
+
+      nearestMarker.setZIndexOffset(1000);
+      nearestLine = L.polyline([userLL, nearestMarker.getLatLng()], { weight: 3, dashArray: '6,6' }).addTo(map);
+
+      const dist = map.distance(userLL, nearestMarker.getLatLng());
+      const miles = (best.dist / 1609.344).toFixed(2);
+      const km = (best.dist / 1000).toFixed(2);
+      const b = L.latLngBounds([userLL, best.marker.getLatLng()]).pad(0.4);
+      map.fitBounds(b);
+
+      setNearMeStatus(`Closest: ${(row['Name'] || 'Location')} — ${miles} mi / ${km} km`);
+      //nearestMarker.openPopup();
+      nearestMarker.fire("click"); // Now also opens the sidebar card, not just the marker popup when using Near Me
+    }
+
+    function showUserMarker(ll) {
+      if (userMarker) userMarker.setLatLng(ll);
+      else userMarker = L.marker(ll, { title: 'You are here' })
+        .bindPopup('<b>You are here</b>')
+        .addTo(map);
+
+      L.circle(ll, { radius: 25, stroke: false, fillOpacity: 0.15 }).addTo(map);
+    }
+
+    // Return the markers currently visible after applyFilter()
+    function getVisibleMarkers() {
+      return clusterGroup.getLayers(); // array of L.Marker
+    }
+
+    // Lookup the original row for a given marker
+    function getRowForMarker(marker) {
+      const rec = allMarkers.find(x => x.marker === marker);
+      return rec ? rec.row : {};
+    }
+
+    // Build sidebar list from the currently-visible markers prioritizing premium first
+    function renderStoreListingsFromLayers(layers) {
+      const storeList = document.getElementById('storeListings');
+      if (!storeList) return;
+
+      storeList.innerHTML = '';
+
+      // Pair each marker with its row
+      const items = (layers || []).map(marker => ({
+        marker,
+        row: getRowForMarker(marker)
+      }));
+
+      // Premium first ordering, then alphabetical
+      items.sort((a, b) => {
+        const aPremium = a.row && a.row._isPremium === true ? 1 : 0;
+        const bPremium = b.row && b.row._isPremium === true ? 1 : 0;
+
+        if (aPremium !== bPremium) return bPremium - aPremium;
+
+        const aName = String(a.row?.['Name'] || '').toLowerCase();
+        const bName = String(b.row?.['Name'] || '').toLowerCase();
+        return aName.localeCompare(bName);
+      });
+
+      items.forEach(({ row, marker }) => {
+        const item = document.createElement('div');
+        item.className = 'store';
+
+        const addressLine = row['Address Line 1'] || '';
+
+        const locationParts = [];
+        pushCityStateDeduped(locationParts, row['City'], row['State/Province/Region']);
+        if (row['Country']) locationParts.push(row['Country']);
+        const locationLine = locationParts.join(', ');
+
+      item.innerHTML = `
+        <strong>${row['Name'] || 'Unnamed'}</strong><br>
+        ${addressLine}<br>
+        ${locationLine}
+      `;
+
+      item.addEventListener('click', () => {
+        const latitude = parseFloat(row.Latitude);
+        const longitude = parseFloat(row.Longitude);
+
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          map.flyTo([latitude, longitude], 14, { animate: true, duration: 0.8 });
+        }
+
+        focusedMarker = marker;
+        openStoreDetail(row, marker);
+      });
+
+      storeList.appendChild(item);
+    });
+  }
+
+    // Find the nearest marker among a given set (visible layers)
+    function findNearestAmong(targetLatLng, layers) {
+      let best = null; // { dist, marker }
+      layers.forEach(m => {
+        const d = map.distance(targetLatLng, m.getLatLng());
+        if (!best || d < best.dist) best = { dist: d, marker: m };
+      });
+      return best;
+    }
+
+    function locateAndJumpToNearest() {
+      if (!navigator.geolocation) { setNearMeStatus('Geolocation not supported.'); return; }
+      setNearMeStatus('Locating…');
+      getUserLatLng(
+        (ll) => {
+          showUserMarker(ll);
+
+          // Ensure we're using the current filtered set (whatever UI is set to)
+          applyFilter(); // keeps current type/store filters
+
+          const visible = getVisibleMarkers();
+          if (!visible.length) { setNearMeStatus('No locations match current filters.'); return; }
+
+          const best = findNearestAmong(ll, visible);
+          // Include row for nicer status text
+          emphasizeNearest(ll, { ...best, row: getRowForMarker(best.marker) });
+        },
+        (err) => {
+          // Error handling to see what went wrong
+          const m = {
+            1: 'Permission Denied.',
+            2: 'Position Unavailable.',
+            3: 'Request Timed Out.'
+          };
+          setNearMeStatus(m[err.code] || 'Unable to get location.');
+        }
+      );
+    }
+
+    function populateBrandSelect(brandSet) {
+      const container = document.getElementById('brandCheckboxes');
+      container.innerHTML = '';
+      [...brandSet].sort().forEach(b => {
+        const label = document.createElement('label');
+        label.style.display = 'inline-flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '6px';
+        label.style.marginRight = '6px';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = b;
+        cb.addEventListener('change', () => applyFilter());
+
+        const span = document.createElement('span');
+        span.textContent = b;
+        span.style.userSelect = 'none';
+
+        label.appendChild(cb);
+        label.appendChild(span);
+        container.appendChild(label);
+      });
+    }
+
+
+
+    // wire store filter input (debounced)
+    const storeInput = document.getElementById('storeFilter');
+    let debounce;
+    storeInput.addEventListener('input', () => {
+      clearTimeout(debounce);
+
+      const query = (storeInput.value || '').trim();
+      const storeCheckboxesDiv = document.getElementById('storeCheckboxes');
+      if (storeCheckboxesDiv) {
+        storeCheckboxesDiv.style.display = query ? 'block' : 'none';
+      }
+
+      // When searchbar is empty, clear all store checkbox selections
+      if (!query) {
+        userCheckedStores.clear();
+        document.querySelectorAll('#storeCheckboxes input[type="checkbox"]').forEach(cb => {
+          cb.checked = false;
+        });
+      }
+
+      debounce = setTimeout(() => applyFilter(), 250);
+    });
+
+    function showBanner(msg) {
+      const div = document.createElement('div');
+      div.className = 'banner';
+      div.textContent = msg;
+      document.body.appendChild(div);
+    }
+
+    function isValidEmail(val) {
+      if (!val) return false;
+
+      const bad = new Set([
+        '', ' ', '-', '--', '---', '.', 'n/a', 'na', 'none', 'null',
+        'not provided', 'not available', 'no email', '0'
+    ]);
+
+    const cleaned = val.trim().toLowerCase();
+    if (bad.has(cleaned)) return false;
+
+    return cleaned.includes('@') && cleaned.includes('.');
+    }
+
+    function isValidPhone(val) {
+      if (!val) return false;
+
+      const cleaned = String(val).trim();
+      const lowered = cleaned.toLowerCase();
+
+      const bad = new Set([
+        '', ' ', '-', '--', '---', '.', 'n/a', 'na', 'none', 'null',
+        'not provided', 'not available', 'no phone', '0'
+      ]);
+
+      if (bad.has(lowered)) return false;
+
+      const digitsOnly = cleaned.replace(/\D/g, '');
+      return digitsOnly.length >= 10;
+    }
+
+    function formatPhoneHref(val) {
+      const raw = String(val || '').trim();
+      const hasPlus = raw.startsWith('+');
+      const digitsOnly = raw.replace(/\D/g, '');
+
+      if (!digitsOnly) return '#';
+
+      return hasPlus ? `tel:+${digitsOnly}` : `tel:${digitsOnly}`;
+    }
+
+    // --- Fetch premium flags by handle from locations API, then load CSV ---
+    fetch(readApiOrigin() + '/api/locations?limit=10000&status=true&v=' + Date.now())
+      .then(function (res) { return res.ok ? res.json() : { data: [] }; })
+      .then(function (payload) {
+        var locs = Array.isArray(payload.data) ? payload.data : [];
+        PREMIUM_BY_HANDLE = new Map();
+        locs.forEach(function (loc) {
+          if (loc && loc.handle && loc.isPremium) {
+            PREMIUM_BY_HANDLE.set(String(loc.handle).trim(), true);
+          }
+        });
+        console.log('[proto] Premium handles from API:', PREMIUM_BY_HANDLE.size);
+      })
+      .catch(function (err) {
+        console.warn('[proto] Could not fetch locations for premium flags:', err);
+        PREMIUM_BY_HANDLE = new Map();
+      })
+      .then(() => loadCSV('/backend/uploads/master_stores.csv'))
+      .then(rows => {
+        console.log('CSV rows (raw):', rows.length);
+        const brandSet = new Set();
+
+        // Keep only rows that *have something* in lat/lon
+        allRows = rows.filter(r => (r.Latitude ?? '') !== '' && (r.Longitude ?? '') !== '');
+        console.log('Rows with any lat/lon value:', allRows.length);
+
+        const detailCloseBtn = document.getElementById('detailCloseBtn');
+        if (detailCloseBtn) {
+          detailCloseBtn.addEventListener('click', () => setDetailPanelVisible(false));
+        }
+
+        allRows.forEach(row => {
+          // classify row type using heuristics
+          const descFields = [row['Name'], row['Page Description'], row['Page Title'], row['Meta Description'], row['Tags'], row['Custom Brands']]
+            .filter(Boolean)
+            .join('\n')
+            .toLowerCase();
+
+          if (isServiceCenterRow(row)) {
+            row._type = 'services-center';
+          } else if (/boutique|authorized dealer|retailer|store/.test(descFields)) {
+            row._type = 'watch-brands';
+          } else if (/mall|shopping center|plaza/.test(descFields)) {
+            row._type = 'accessory-brands';
+          } else {
+            row._type = 'accessory-brands';
+          }
+          const lat = parseFloat(String(row.Latitude).trim());
+          const lon = parseFloat(String(row.Longitude).trim());
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+          row._isPremium = !!PREMIUM_BY_HANDLE.get(String(row['Handle'] || '').trim());
+          row._isServiceCenter = isServiceCenterRow(row);
+          row._isPremiumBrandOnly = isPremiumBrandOnlyRow(row);
+
+          const iconToUse = getMarkerIconForRow(row);
+
+          const marker = L.marker([lat, lon], { icon: iconToUse })
+            .bindPopup(buildPopup(row));
+            marker.on('click', () => {
+              focusedMarker = marker;
+              openStoreDetail(row, marker);
+              });
+          allMarkers.push({ row, marker });
+          clusterGroup.addLayer(marker);
+          bounds.extend([lat, lon]);
+
+          (extractBrandsText(row) || '')
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean)
+            .forEach(b => brandSet.add(b));
+          // also expose type values for debugging / UI
+          // (we don't include types in the brand list)
+
+        });
+
+        map.addLayer(clusterGroup);
+
+        const NearMeControl = L.Control.extend({
+          options: { position: 'bottomright' },
+
+          onAdd: function (map) {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+            container.style.backgroundColor = 'white';
+            container.style.border = '1px solid #ccc';
+            container.style.borderRadius = '6px';
+            container.style.cursor = 'pointer';
+            container.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+            container.style.padding = '6px 10px';
+            container.style.fontSize = '16px';
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.justifyContent = 'center';
+            container.title = 'Find stores near me';
+            container.innerHTML = '📍 Near Me';
+
+            // Prevent map from zooming when clicking the control
+            L.DomEvent.disableClickPropagation(container);
+
+            container.addEventListener('click', () => {
+              if (!navigator.geolocation) { setNearMeStatus('Geolocation not supported.'); return; }
+              setNearMeStatus('Locating…');
+              getUserLatLng(
+                (ll) => {
+                  showUserMarker(ll);
+
+                  // Find nearest among visible markers
+                  const visible = getVisibleMarkers();
+                  if (!visible.length) { setNearMeStatus('No locations match current filters.'); return; }
+
+                  const best = findNearestAmong(ll, visible);
+                  emphasizeNearest(ll, { ...best, row: getRowForMarker(best.marker) });
+
+                  map.setView(best.marker.getLatLng(), 11);
+                },
+                (err) => {
+                  const m = {1: 'Permission Denied.', 2: 'Position Unavailable.', 3: 'Request Timed Out.'};
+                  setNearMeStatus(m[err.code] || 'Unable to get location.');
+                }
+              );
+            });
+
+            return container;
+          }
+        });
+
+        map.addControl(new NearMeControl());
+
+        if (bounds.isValid()) map.fitBounds(bounds.pad(0.2));
+
+        // Building the sidebar list
+        const storeList = document.getElementById('storeListings');
+        storeList.innerHTML = '';
+
+        allMarkers.forEach(({ row, marker }) => {
+          const item = document.createElement('div');
+          item.className = 'store';
+
+          const addressLine = row['Address Line 1'] || '';
+
+          const locationParts = [];
+          pushCityStateDeduped(locationParts, row['City'], row['State/Province/Region']);
+          if (row['Country']) locationParts.push(row['Country']);
+          const locationLine = locationParts.join(', ');
+
+          item.innerHTML = `
+          <strong>${row['Name'] || 'Unamed'}</strong><br>
+          ${addressLine}<br>
+          ${locationLine}
+          `;
+
+          item.addEventListener('click', () => {
+            // Pan to location on map and open its associated popup
+            // two lines to add lat and lon to variables but within this function there are already those so just going to use those
+            const latitude = parseFloat(row.Latitude);
+            const longitude = parseFloat(row.Longitude);
+
+            if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+              map.flyTo([latitude, longitude], 14, { animate: true, duration: 0.8 });
+            }
+
+            focusedMarker = marker;
+            openStoreDetail(row, marker);
+          });
+
+          storeList.appendChild(item);
+        });
+
+        const RadiusControl = L.Control.extend({
+          options: { position: 'bottomright' },
+
+          onAdd: function (map) {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+            container.style.backgroundColor = 'white';
+            container.style.border = '1px solid #ccc';
+            container.style.borderRadius = '6px';
+            container.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+            container.style.padding = '8px';
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.gap = '6px';
+            container.style.fontSize = '14px';
+            container.title = 'Show stores within a radius of your location';
+
+            // Prevent clicks from affecting map zoom/pan
+            L.DomEvent.disableClickPropagation(container);
+
+            // Radius dropdown
+            const select = L.DomUtil.create('select', '', container);
+            select.style.padding = '4px';
+            select.style.borderRadius = '4px';
+            select.style.border = '1px solid #ccc';
+            select.style.cursor = 'pointer';
+
+            [5, 10, 25, 50].forEach(mi => {
+              const opt = document.createElement('option');
+              opt.value = mi;
+              opt.textContent = `${mi} mi`;
+              if (mi === 10) opt.selected = true;
+              select.appendChild(opt);
+            });
+
+            // "Within radius" button
+            const button = L.DomUtil.create('button', '', container);
+            button.textContent = 'Within radius';
+            button.style.padding = '6px 8px';
+            button.style.border = '1px solid #ccc';
+            button.style.borderRadius = '4px';
+            button.style.cursor = 'pointer';
+            button.style.background = 'white';
+
+            // Click handler
+            button.addEventListener('click', () => {
+              const mi = parseFloat(select.value || '10');
+              const radiusMeters = mi * 1609.344;
+
+              if (!navigator.geolocation) {
+                setNearMeStatus('Geolocation not supported.');
+                return;
+              }
+
+              setNearMeStatus(`Locating...`);
+              getUserLatLng(
+                (ll) => {
+                  showUserMarker(ll);
+                  applyRadiusToCurrent(ll, radiusMeters);
+                },
+                (err) => {
+                  // Error handling to see what went wrong
+                  const m = {
+                    1: 'Permission Denied.',
+                    2: 'Position Unavailable.',
+                    3: 'Request Timed Out.'
+                  };
+                  setNearMeStatus(m[err.code] || 'Unable to get location.');
+                } 
+              );
+            });
+
+            return container;
+          }
+        });
+
+        map.addControl(new RadiusControl());
+        populateBrandSelect(brandSet);
+        // Wire type checkboxes to applyFilter
+        document.querySelectorAll('#typeCheckboxes input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener('change', () => applyFilter());
+        });
+        rebuildStoreCheckboxes(allRows);
+        // Premium-only filter UI removed; no toggle listener required.
+
+        // Preload filters from URL, then apply once
+        document.getElementById('storeFilter').value = INITIAL.store;
+        if (INITIAL.brand) {
+          const b = INITIAL.brand.toLowerCase();
+          document.querySelectorAll('#brandCheckboxes input[type="checkbox"]').forEach(cb => {
+            if ((cb.value || '').toLowerCase().includes(b)) cb.checked = true;
+          });
+        }
+        if (INITIAL.type) {
+          const t = INITIAL.type.toLowerCase();
+          document.querySelectorAll('#typeCheckboxes input[type="checkbox"]').forEach(cb => {
+            if ((cb.value || '').toLowerCase() === t) cb.checked = true;
+          });
+        }
+        applyFilter();
+
+        // Do not pre-check checkboxes from URL params; users must explicitly
+        // select stores using the checkbox controls.
+
+        console.log('Markers added:', allMarkers.length);
+        if (allMarkers.length === 0) {
+          showBanner('No markers loaded — ensure the backend is running and locations in the DB have numeric Latitude/Longitude (CSV is generated from the database).');
+        }
+      })
+      .catch(err => {
+        console.error('Error loading CSV:', err);
+        alert('Failed to load store CSV from the server. Run the backend and open this page via http://localhost (the CSV is generated from the database, not a static file).');
+      });
+  </script>
+</body>
+
+</html>
