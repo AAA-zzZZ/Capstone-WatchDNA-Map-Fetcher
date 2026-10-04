@@ -1,0 +1,85 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: # adds a "Run workflow" button in the Actions tab
+
+jobs:
+  backend:
+    name: Backend (Vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # postinstall runs `prisma generate`, which the tests need
+      - run: npm ci
+
+      # All tests mock the database, so no real Postgres is needed.
+      - name: Run tests
+        env:
+          JWT_SECRET: ci-test-secret
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+        run: npm test
+
+  admin-frontend:
+    name: Admin frontend (build + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: admin-frontend/package-lock.json
+
+      - run: npm ci
+
+      # Type-checks (tsc -b) and builds with Vite; fails on type errors
+      - name: Build
+        run: npm run build
+
+      # Lint currently has ~47 existing errors; reported but not blocking.
+      # Remove continue-on-error once they're cleaned up.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+  python:
+    name: Python tools (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      # Offline unit tests only. "live" tests hit real brand websites and
+      # test_discoverer.py needs Selenium + Chrome, so both are skipped here.
+      - name: Run tests
+        run: pytest Prototypes/endpoint_discoverer/test_probe_endpoint.py -k "not live" -v
+
+      # Enable this once AD / LI / MC are added to watch_store_countries.json
+      # (it currently fails 3 of 41 cases):
+      # - name: Country normalization tests
+      #   run: python Prototypes/Data_Scrappers/test_country_normalize.py
