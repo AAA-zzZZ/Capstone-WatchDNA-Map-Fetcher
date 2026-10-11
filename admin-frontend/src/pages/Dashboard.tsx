@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Upload, CheckCircle2, XCircle, MapPin } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/Dashboard.css';
 
 interface Stats {
@@ -32,6 +34,7 @@ interface Upload {
 }
 
 const Dashboard: React.FC = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentUploads, setRecentUploads] = useState<Upload[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,30 +76,52 @@ const Dashboard: React.FC = () => {
     return <div className="loading">Loading dashboard...</div>;
   }
 
+  // One entry per stat card: icon + accent color + value + label.
+  // Add/remove a card by editing this array — the JSX below just maps over it.
+  const statCards = [
+    {
+      icon: Upload,
+      accent: 'teal',
+      value: stats?.totalUploads || 0,
+      label: 'Total Uploads',
+    },
+    {
+      icon: CheckCircle2,
+      accent: 'green',
+      value: stats?.validUploads || 0,
+      label: 'Valid Uploads',
+    },
+    {
+      icon: XCircle,
+      accent: 'red',
+      value: stats?.invalidUploads || 0,
+      label: 'Invalid Uploads',
+    },
+    {
+      icon: MapPin,
+      accent: 'purple',
+      value: stats?.totalLocations || 0,
+      label: 'Total Locations',
+    },
+  ];
+
   return (
     <div className="dashboard">
-      <h1>Dashboard</h1>
+      <div className="dashboard-header">
+        <h1>Welcome back, {user?.username || 'Admin'}</h1>
+        <p className="dashboard-subtitle">Overview of store locations and uploads.</p>
+      </div>
 
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-value">{stats?.totalUploads || 0}</div>
-          <div className="stat-label">Total Uploads</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-value">{stats?.validUploads || 0}</div>
-          <div className="stat-label">Valid Uploads</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-value">{stats?.invalidUploads || 0}</div>
-          <div className="stat-label">Invalid Uploads</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-value">{stats?.totalLocations || 0}</div>
-          <div className="stat-label">Total Locations</div>
-        </div>
+        {statCards.map(({ icon: Icon, accent, value, label }) => (
+          <div className="stat-card" key={label}>
+            <div className={`stat-icon stat-icon-${accent}`}>
+              <Icon size={20} strokeWidth={2} />
+            </div>
+            <div className="stat-value">{value}</div>
+            <div className="stat-label">{label}</div>
+          </div>
+        ))}
       </div>
 
       <div className="recent-section">

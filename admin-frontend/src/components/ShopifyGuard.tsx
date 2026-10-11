@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
+
 const SESSION_KEY = 'shopify_verified';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -8,6 +9,10 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
  * In production it defaults to enforced (anything other than the string "false" is treated as enabled).
  */
 const REQUIRE_SHOPIFY = import.meta.env.VITE_REQUIRE_SHOPIFY !== 'false';
+
+// TEMPORARY DEBUG LOG — remove once this is sorted out.
+console.log('[DEBUG] raw env value:', JSON.stringify(import.meta.env.VITE_REQUIRE_SHOPIFY));
+console.log('[DEBUG] REQUIRE_SHOPIFY resolved to:', REQUIRE_SHOPIFY);
 
 type Status = 'checking' | 'allowed' | 'denied';
 
@@ -92,8 +97,8 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     height: '100vh',
     fontFamily: 'system-ui, sans-serif',
-    backgroundColor: '#f4f6f8',
-    color: '#202223',
+    backgroundColor: 'var(--gray-900)',
+    color: 'var(--gray-50)',
   },
   heading: {
     fontSize: '1.5rem',
@@ -101,7 +106,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   message: {
     fontSize: '1rem',
-    color: '#6d7175',
+    color: 'var(--gray-300)',
   },
 };
 

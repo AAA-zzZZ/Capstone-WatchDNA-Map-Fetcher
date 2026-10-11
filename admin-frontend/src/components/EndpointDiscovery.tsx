@@ -511,7 +511,7 @@ const EndpointDiscovery: React.FC<EndpointDiscoveryProps> = ({ onConfigSaved }) 
               {similarityInfo ? (
                 <div className="comparison-warning">
                   <strong>⚠️ Similar brand configuration found: "{similarityInfo.brandId}"</strong>
-                  <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+                  <div style={{ marginTop: '8px', fontSize: '14px', color: 'var(--gray-300)' }}>
                     Similarity: {(similarityInfo.similarity * 100).toFixed(0)}% - {similarityInfo.reason}
                   </div>
                   <div style={{ marginTop: '8px' }}>

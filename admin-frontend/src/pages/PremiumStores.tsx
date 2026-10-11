@@ -151,7 +151,7 @@ const StoreCard: React.FC<StoreCardProps> = React.memo(({
       {showOriginalName && (
         <div
           className="store-card__original-name"
-          style={{ fontSize: '0.85em', color: '#6b7280', marginTop: '-4px' }}
+          style={{ fontSize: '0.85em', color: 'var(--gray-400)', marginTop: '-4px' }}
           title="Original (local-language) name"
         >
           {originalName}
@@ -163,7 +163,7 @@ const StoreCard: React.FC<StoreCardProps> = React.memo(({
       {originalAddress && (
         <div
           className="store-card__original-address"
-          style={{ fontSize: '0.85em', color: '#6b7280' }}
+          style={{ fontSize: '0.85em', color: 'var(--gray-400)' }}
           title="Original (local-language) address"
         >
           {originalAddress}
