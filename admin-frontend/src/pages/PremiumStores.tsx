@@ -69,6 +69,69 @@ function originalAddressIfDifferent(store: StoreRecord): string | null {
   return parts.length > 0 ? parts.join(', ') : null;
 }
 
+// ── Location directory (country → region → stores, like the public store directory) ──
+
+const UNSPECIFIED_KEY = 'unspecified';
+
+/**
+ * Grouping key for a country/region name: case-, whitespace- and dash-insensitive, so
+ * "Baden-Württemberg" and "Baden Württemberg" land in the same group. Blank → "unspecified".
+ */
+function locationKey(value: string | null | undefined): string {
+  const key = (value ?? '')
+    .normalize('NFKC')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-‐‑‒–—_]+/g, ' ');
+  return key || UNSPECIFIED_KEY;
+}
+
+interface LocationGroup {
+  key: string;
+  label: string;
+  stores: StoreRecord[];
+  verifiedCount: number;
+}
+
+/** Groups stores by a location field; label is the most common spelling, "Unspecified" sorts last. */
+function groupStoresByLocation(
+  stores: StoreRecord[],
+  getValue: (s: StoreRecord) => string | null | undefined
+): LocationGroup[] {
+  const groups = new Map<string, { spellings: Map<string, number>; stores: StoreRecord[] }>();
+  for (const s of stores) {
+    const raw = (getValue(s) ?? '').trim();
+    const key = locationKey(raw);
+    let group = groups.get(key);
+    if (!group) {
+      group = { spellings: new Map(), stores: [] };
+      groups.set(key, group);
+    }
+    group.stores.push(s);
+    if (raw) group.spellings.set(raw, (group.spellings.get(raw) ?? 0) + 1);
+  }
+  return Array.from(groups, ([key, g]) => {
+    let label = 'Unspecified';
+    let best = 0;
+    g.spellings.forEach((n, spelling) => {
+      if (n > best) {
+        best = n;
+        label = spelling;
+      }
+    });
+    return {
+      key,
+      label,
+      stores: g.stores,
+      verifiedCount: g.stores.filter((s) => s.isPremium).length,
+    };
+  }).sort((a, b) => {
+    if (a.key === UNSPECIFIED_KEY) return 1;
+    if (b.key === UNSPECIFIED_KEY) return -1;
+    return a.label.localeCompare(b.label);
+  });
+}
+
 interface BulkPremiumRow {
   handle: string;
   name: string;
@@ -206,6 +269,8 @@ const PremiumStores: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('');
+  /** locationKey() of the region drilled into within selectedCountry; '' = all regions. */
+  const [selectedRegion, setSelectedRegion] = useState('');
   /** When any is checked, list only stores that match at least one selected category (OR). */
   const [filterDealer, setFilterDealer] = useState(false);
   const [filterBoutique, setFilterBoutique] = useState(false);
@@ -316,6 +381,7 @@ const PremiumStores: React.FC = () => {
 
   const filteredStores = useMemo(() => {
     const query = searchText.trim().toLowerCase();
+    const countryKey = selectedCountry ? locationKey(selectedCountry) : '';
     const categoryOn = filterDealer || filterBoutique || filterService;
     return stores.filter((s) => {
       if (categoryOn) {
@@ -332,7 +398,7 @@ const PremiumStores: React.FC = () => {
         !storeMatchesBrandFilter((s.premiumFilterBrands || []).join(', '), selectedBrand)
       )
         return false;
-      if (selectedCountry && s.country !== selectedCountry) return false;
+      if (countryKey && locationKey(s.country) !== countryKey) return false;
       if (query) {
         const haystack = `${s.name} ${s.nameEn ?? ''} ${s.addressLine1En ?? ''} ${s.cityEn ?? ''} ${formatAddress(s)}`.toLowerCase();
         if (!haystack.includes(query)) return false;
@@ -340,6 +406,44 @@ const PremiumStores: React.FC = () => {
       return true;
     });
   }, [stores, searchText, selectedBrand, selectedCountry, filterDealer, filterBoutique, filterService]);
+
+  // ── Location directory ────────────────────────────────────────────────────
+
+  /** No country picked and no search → show the country/region index instead of store cards. */
+  const browsingDirectory = !selectedCountry && !searchText.trim();
+
+  const countryGroups = useMemo(
+    () =>
+      browsingDirectory
+        ? groupStoresByLocation(filteredStores, (s) => s.country).map((country) => ({
+            ...country,
+            regions: groupStoresByLocation(country.stores, (s) => s.stateProvinceRegion),
+          }))
+        : [],
+    [browsingDirectory, filteredStores]
+  );
+
+  const regionGroups = useMemo(
+    () => (selectedCountry ? groupStoresByLocation(filteredStores, (s) => s.stateProvinceRegion) : []),
+    [selectedCountry, filteredStores]
+  );
+
+  const visibleStores = useMemo(
+    () =>
+      selectedRegion
+        ? filteredStores.filter((s) => locationKey(s.stateProvinceRegion) === selectedRegion)
+        : filteredStores,
+    [filteredStores, selectedRegion]
+  );
+
+  const selectedRegionLabel =
+    regionGroups.find((r) => r.key === selectedRegion)?.label ?? '';
+
+  const openLocation = useCallback((country: string, regionKey = '') => {
+    setSelectedCountry(country);
+    setSelectedRegion(regionKey);
+    window.scrollTo({ top: 0 });
+  }, []);
 
   // ── Autocomplete suggestions ──────────────────────────────────────────────
 
@@ -537,6 +641,7 @@ const PremiumStores: React.FC = () => {
     setSearchText('');
     setSelectedBrand('');
     setSelectedCountry('');
+    setSelectedRegion('');
     setFilterDealer(false);
     setFilterBoutique(false);
     setFilterService(false);
@@ -610,8 +715,11 @@ const PremiumStores: React.FC = () => {
 
         <div className="premium-filter-group">
           <label>Country</label>
-          <select value={selectedCountry} onChange={(e) => setSelectedCountry(e.target.value)}>
+          <select value={selectedCountry} onChange={(e) => openLocation(e.target.value)}>
             <option value="">All countries</option>
+            {selectedCountry && !allCountries.includes(selectedCountry) && (
+              <option value={selectedCountry}>{selectedCountry}</option>
+            )}
             {allCountries.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -687,8 +795,41 @@ const PremiumStores: React.FC = () => {
 
       {/* Toolbar */}
       <div className="premium-toolbar">
+        <nav className="premium-breadcrumb" aria-label="Location">
+          {selectedCountry ? (
+            <button type="button" className="premium-breadcrumb__link" onClick={() => openLocation('')}>
+              All countries
+            </button>
+          ) : (
+            <span className="premium-breadcrumb__current">All countries</span>
+          )}
+          {selectedCountry && (
+            <>
+              <span className="premium-breadcrumb__sep" aria-hidden="true">›</span>
+              {selectedRegion ? (
+                <button
+                  type="button"
+                  className="premium-breadcrumb__link"
+                  onClick={() => openLocation(selectedCountry)}
+                >
+                  {selectedCountry}
+                </button>
+              ) : (
+                <span className="premium-breadcrumb__current">{selectedCountry}</span>
+              )}
+            </>
+          )}
+          {selectedRegion && (
+            <>
+              <span className="premium-breadcrumb__sep" aria-hidden="true">›</span>
+              <span className="premium-breadcrumb__current">{selectedRegionLabel || 'Unspecified'}</span>
+            </>
+          )}
+        </nav>
         <span className="premium-toolbar__info">
-          Showing {filteredStores.length} store{filteredStores.length !== 1 ? 's' : ''}
+          {browsingDirectory
+            ? `${filteredStores.length} store${filteredStores.length !== 1 ? 's' : ''} in ${countryGroups.length} countr${countryGroups.length !== 1 ? 'ies' : 'y'}`
+            : `Showing ${visibleStores.length} store${visibleStores.length !== 1 ? 's' : ''}`}
           {selectedHandles.size > 0 && ` · ${selectedHandles.size} selected`}
         </span>
         <button
@@ -702,12 +843,73 @@ const PremiumStores: React.FC = () => {
         </button>
       </div>
 
+      {/* Country → region index (shown until a country is picked or a search is typed) */}
+      {browsingDirectory ? (
+        <div className="premium-directory">
+          {countryGroups.length === 0 ? (
+            <div className="premium-empty">No stores match your filters.</div>
+          ) : (
+            countryGroups.map((country) => (
+              <section key={country.key} className="premium-directory__country">
+                <button
+                  type="button"
+                  className="premium-directory__country-name"
+                  onClick={() => openLocation(country.label)}
+                >
+                  {country.label}
+                  <span className="premium-directory__count">({country.stores.length})</span>
+                  {country.verifiedCount > 0 && (
+                    <span className="premium-directory__verified">{country.verifiedCount} verified</span>
+                  )}
+                </button>
+                <div className="premium-directory__regions">
+                  {country.regions.map((region) => (
+                    <button
+                      key={region.key}
+                      type="button"
+                      className="premium-directory__region"
+                      onClick={() => openLocation(country.label, region.key)}
+                    >
+                      {region.label}
+                      <span className="premium-directory__count">({region.stores.length})</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))
+          )}
+        </div>
+      ) : (
+      <>
+      {/* Region chips for the selected country */}
+      {selectedCountry && regionGroups.length > 0 && (
+        <div className="premium-region-chips" role="group" aria-label={`Regions in ${selectedCountry}`}>
+          <button
+            type="button"
+            className={`premium-region-chip${selectedRegion ? '' : ' active'}`}
+            onClick={() => setSelectedRegion('')}
+          >
+            All regions <span className="premium-directory__count">({filteredStores.length})</span>
+          </button>
+          {regionGroups.map((region) => (
+            <button
+              key={region.key}
+              type="button"
+              className={`premium-region-chip${selectedRegion === region.key ? ' active' : ''}`}
+              onClick={() => setSelectedRegion(region.key)}
+            >
+              {region.label} <span className="premium-directory__count">({region.stores.length})</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Store grid */}
       <div className="premium-grid">
-        {filteredStores.length === 0 ? (
+        {visibleStores.length === 0 ? (
           <div className="premium-empty">No stores match your filters.</div>
         ) : (
-          filteredStores.map((store) => (
+          visibleStores.map((store) => (
             <StoreCard
               key={store.handle}
               store={store}
@@ -719,6 +921,8 @@ const PremiumStores: React.FC = () => {
           ))
         )}
       </div>
+      </>
+      )}
 
       {/* Spacer so review panel doesn't cover last row */}
       {selectedHandles.size > 0 && <div className="review-panel-spacer" />}
