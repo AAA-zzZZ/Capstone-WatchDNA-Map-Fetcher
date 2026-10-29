@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Google rating prototype</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    html, body { height: auto; min-height: 100%; overflow: auto; background: #f5f1e8; }
+    main { box-sizing: border-box; max-width: 480px; padding: 24px 16px; margin: 0 auto; }
+    .demo-note { font-family: sans-serif; font-size: 0.9rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Retailer rating prototype</h1>
+    <p class="demo-note">Place ID: https://developers.google.com/maps/documentation/places/web-service/place-id</p>
+    <div id="storeDetailPanel" class="store-detail"></div>
+  </main>
+  <script src="places-rating-prototype.js?v=2"></script>
+  <script>window.WatchDnaPlacesPrototype?.openStore({ _locationId: 'standalone-demo' });</script>
+</body>
+</html>
